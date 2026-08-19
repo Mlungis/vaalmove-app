@@ -44,12 +44,11 @@ export default function OnboardingScreen({ navigation }) {
 
         <View style={styles.copy}>
           <Text style={styles.wordmark}>
-            <Text style={styles.wordmarkLex}>Lex</Text>
-            RidesZA
+            Vaal<Text style={styles.wordmarkLex}>Move</Text>
           </Text>
-          <Text style={styles.tagline}>Your Transport. Your Way.</Text>
+          <Text style={styles.tagline}>Move smarter. Move faster.</Text>
           <Text style={styles.desc}>
-            Rent premium rides, book reliable transport, and discover local drivers for every trip.
+            Premium rides, executive shuttles, and reliable transport for every trip across the city.
           </Text>
         </View>
       </View>

@@ -1,7 +1,7 @@
-# LexRidesZA — mobile app (Expo / React Native)
+# VaalMove — premium mobility platform demo (Expo / React Native)
 
-A real native app: onboarding, login, signup, and the home dashboard,
-matching the liquid-glass design from the original screens.
+A polished on-demand transport marketplace built to feel like a premium Uber/Bolt-style product:
+smart onboarding, search flows, booking confirmations, provider dashboards, and a full customer journey from discovery to checkout.
 
 ## Run it on your phone
 

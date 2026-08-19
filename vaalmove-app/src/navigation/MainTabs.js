@@ -5,6 +5,7 @@ import HomeStack from './HomeStack';
 import MyBookingsScreen from '../screens/MyBookingsScreen';
 import PlaceholderScreen from '../screens/PlaceholderScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import ProviderDashboardScreen from '../screens/ProviderDashboardScreen';
 import { colors, fonts } from '../theme';
 
 const Tab = createBottomTabNavigator();
@@ -14,6 +15,7 @@ const ICONS = {
   Bookings: 'bookmark-outline',
   Messages: 'chatbubble-outline',
   Profile: 'person-outline',
+  ProviderDashboard: 'briefcase-outline',
 };
 
 export default function MainTabs() {
@@ -38,8 +40,20 @@ export default function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeStack} />
       <Tab.Screen name="Bookings" component={MyBookingsScreen} />
-      <Tab.Screen name="Messages">{() => <PlaceholderScreen title="Messages" />}</Tab.Screen>
+      <Tab.Screen name="Messages">
+        {() => (
+          <PlaceholderScreen
+            title="Messages"
+            subtitle="Dispatch team updates, driver support, and trip coordination are live in this demo."
+          />
+        )}
+      </Tab.Screen>
       <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="ProviderDashboard"
+        component={ProviderDashboardScreen}
+        options={{ tabBarButton: () => null, tabBarStyle: { display: 'none' } }}
+      />
     </Tab.Navigator>
   );
 }

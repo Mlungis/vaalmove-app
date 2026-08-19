@@ -8,14 +8,11 @@ import { colors, fonts, radius } from '../theme';
 import { useAppContext } from '../AppContext';
 
 const quickServices = [
-  { label: 'Rent a Vehicle', icon: 'car-outline', bg: colors.blueBg, iconColor: colors.blueIcon },
-  { label: 'Staff Transport', icon: 'bus-side', bg: colors.greenBg, iconColor: colors.greenIcon },
-  { label: 'School Ride', icon: 'bus-school', bg: colors.amberBg, iconColor: colors.amberIcon },
-  { label: 'Driver Hire', icon: 'person-outline', bg: colors.pinkBg, iconColor: colors.pinkIcon },
+  { label: 'Ride Now', icon: 'car-outline', bg: colors.blueBg, iconColor: colors.blueIcon },
+  { label: 'Priority XL', icon: 'bus-side', bg: colors.greenBg, iconColor: colors.greenIcon },
+  { label: 'Corporate', icon: 'briefcase-outline', bg: colors.amberBg, iconColor: colors.amberIcon },
+  { label: 'Parcel', icon: 'cube-outline', bg: colors.pinkBg, iconColor: colors.pinkIcon },
 ];
-
-// rideDeals will be sourced from the app context (vehicles) if available
-const rideDeals = [];
 
 export default function HomeScreen({ navigation }) {
   const { vehicles } = useAppContext();
@@ -23,20 +20,15 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={["#DDEEFC", "rgba(221,238,252,0)"]}
-        style={styles.wash}
-        pointerEvents="none"
-      />
+      <LinearGradient colors={['#DDEEFC', 'rgba(221,238,252,0)']} style={styles.wash} pointerEvents="none" />
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.topbar}>
           <View style={styles.brand}>
             <View style={styles.brandMark}>
-              <MaterialCommunityIcons name="bus-side" size={18} color="#fff" />
+              <MaterialCommunityIcons name="car-multiple" size={18} color="#fff" />
             </View>
             <Text style={styles.brandName}>
-              <Text style={styles.brandLex}>Lex</Text>
-              RidesZA
+              Vaal<Text style={styles.brandLex}>Move</Text>
             </Text>
           </View>
           <Pressable style={styles.iconBtn} onPress={() => navigation.getParent?.().navigate('Bookings')}>
@@ -46,38 +38,73 @@ export default function HomeScreen({ navigation }) {
 
         <View style={styles.greeting}>
           <Text style={styles.greetingTitle}>Hello, Lesedi 👋</Text>
-          <Text style={styles.greetingSubtitle}>Where are we taking you today?</Text>
+          <Text style={styles.greetingSubtitle}>Your next ride is ready when you are.</Text>
         </View>
 
-        <View style={styles.search}>
+        <Pressable style={styles.search} onPress={() => navigation.navigate('SearchFilter')}>
           <Ionicons name="search" size={17} color={colors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search for vehicles, services or routes"
+            placeholder="Search rides, vehicles, or routes"
             placeholderTextColor={colors.muted}
+            editable={false}
+            pointerEvents="none"
           />
-        </View>
+        </Pressable>
 
         <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
           <View style={styles.heroCard}>
             <Image
-              source={{
-                uri: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80',
-              }}
+              source={{ uri: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80' }}
               style={styles.heroImage}
               resizeMode="cover"
             />
             <View style={styles.heroShade} />
             <View style={styles.heroContent}>
-              <Text style={styles.heroTag}>Premium pickup</Text>
-              <Text style={styles.heroTitle}>Drive in comfort across town</Text>
-              <Text style={styles.heroMeta}>Available in Johannesburg • 24/7</Text>
+              <Text style={styles.heroTag}>Smart mobility</Text>
+              <Text style={styles.heroTitle}>Move faster across the city</Text>
+              <Text style={styles.heroMeta}>On-demand rides • Airport routes • 24/7 support</Text>
+              <View style={styles.heroActions}>
+                <Pressable style={styles.primaryAction} onPress={() => navigation.navigate('SearchFilter')}>
+                  <Text style={styles.primaryActionText}>Book a ride</Text>
+                </Pressable>
+                <Pressable style={styles.secondaryAction} onPress={() => navigation.navigate('PostJob')}>
+                  <Text style={styles.secondaryActionText}>Become a driver</Text>
+                </Pressable>
+              </View>
             </View>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>Live rides</Text>
+              <Text style={styles.summaryValue}>128</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>Avg. ETA</Text>
+              <Text style={styles.summaryValue}>12 min</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>Driver score</Text>
+              <Text style={styles.summaryValue}>4.9</Text>
+            </View>
+          </View>
+
+          <View style={styles.missionCard}>
+            <View style={styles.missionTextWrap}>
+              <Text style={styles.missionBadge}>Priority lane</Text>
+              <Text style={styles.missionTitle}>Airport transfer in under 15 minutes</Text>
+            </View>
+            <Pressable style={styles.missionAction} onPress={() => navigation.navigate('SearchResults', { category: 'Minibus' })}>
+              <Text style={styles.missionActionText}>Request now</Text>
+            </Pressable>
           </View>
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Popular services</Text>
-            <Pressable onPress={() => navigation.navigate('Categories')}><Text style={styles.sectionLink}>See all</Text></Pressable>
+            <Pressable onPress={() => navigation.navigate('Categories')}>
+              <Text style={styles.sectionLink}>See all</Text>
+            </Pressable>
           </View>
 
           <View style={styles.row}>
@@ -110,7 +137,9 @@ export default function HomeScreen({ navigation }) {
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Featured rides</Text>
-            <Text style={styles.sectionLink}>Trending</Text>
+            <Pressable onPress={() => navigation.navigate('SearchResults')}>
+              <Text style={styles.sectionLink}>View all</Text>
+            </Pressable>
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dealStrip} contentContainerStyle={{ paddingRight: 8 }}>
@@ -152,7 +181,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandName: { fontFamily: fonts.display, fontSize: 17, color: colors.ink },
-  brandLex: { color: '#8EF7FF' },
+  brandLex: { color: colors.skyBottom },
   iconBtn: {
     width: 38,
     height: 38,
@@ -184,8 +213,8 @@ const styles = StyleSheet.create({
   grid: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 24 },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   heroCard: {
-    height: 200,
-    borderRadius: 26,
+    height: 230,
+    borderRadius: 28,
     overflow: 'hidden',
     marginBottom: 18,
     backgroundColor: '#dfeaf8',
@@ -228,6 +257,104 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 12,
     color: 'rgba(255,255,255,0.84)',
+  },
+  heroActions: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 10,
+  },
+  primaryAction: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  primaryActionText: {
+    fontFamily: fonts.bodySemi,
+    color: colors.skyBottom,
+    fontSize: 12,
+  },
+  secondaryAction: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  secondaryActionText: {
+    fontFamily: fonts.bodySemi,
+    color: '#fff',
+    fontSize: 12,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  summaryLabel: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    color: colors.muted,
+    marginBottom: 6,
+  },
+  summaryValue: {
+    fontFamily: fonts.displaySemi,
+    fontSize: 17,
+    color: colors.ink,
+  },
+  missionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0E2340',
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  missionTextWrap: { flex: 1, paddingRight: 10 },
+  missionBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(143, 247, 255, 0.18)',
+    color: '#BFEFFF',
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    fontFamily: fonts.bodySemi,
+    fontSize: 10,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  missionTitle: {
+    color: '#fff',
+    fontFamily: fonts.displaySemi,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  missionAction: {
+    backgroundColor: '#fff',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  missionActionText: {
+    color: colors.skyBottom,
+    fontFamily: fonts.bodySemi,
+    fontSize: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
