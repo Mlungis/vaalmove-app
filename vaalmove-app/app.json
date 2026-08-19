@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "LexRidesZA",
+    "slug": "lexridesza",
+    "scheme": "lexridesza",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#3E8FE8",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.lexridesza.app"
+    },
+    "android": {
+      "package": "com.lexridesza.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#3E8FE8"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-status-bar"
+    ]
+  }
+}
