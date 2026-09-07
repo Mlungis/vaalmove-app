@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "LexRidesZA",
+    "slug": "lexridesza",
+    "scheme": "lexridesza",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.lexridesza.app"
+    },
+    "android": {
+      "package": "com.lexridesza.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#3E8FE8"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#3E8FE8",
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "LexRidesZA uses your photos to add pictures to vehicle listings and job posts.",
+          "cameraPermission": "LexRidesZA uses your camera to take pictures for vehicle listings and job posts."
+        }
+      ]
+    ]
+  }
+}
