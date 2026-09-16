@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -7,9 +7,13 @@ import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
 
 export default function ProviderDashboardScreen({ navigation }) {
-  const { user, vehicles, bookings, getVehicleById } = useAppContext();
-  const myListings = vehicles.filter((v) => v.provider === user.providerName);
-  const [activeMap, setActiveMap] = useState(() => Object.fromEntries(myListings.map((v) => [v.id, true])));
+  const { user, session, vehicles, bookings, getVehicleById, updateVehicleStatus } = useAppContext();
+  const myListings = vehicles.filter((v) => v.providerId === session?.user?.id || (user.providerName && v.provider === user.providerName));
+  const [activeMap, setActiveMap] = useState(() => Object.fromEntries(myListings.map((v) => [v.id, v.status === 'published'])));
+
+  useEffect(() => {
+    setActiveMap(Object.fromEntries(myListings.map((vehicle) => [vehicle.id, vehicle.status === 'published'])));
+  }, [myListings.map((vehicle) => `${vehicle.id}:${vehicle.status}`).join('|')]);
 
   const providerBookings = bookings
     .filter((b) => myListings.some((v) => v.id === b.vehicleId))
@@ -17,8 +21,11 @@ export default function ProviderDashboardScreen({ navigation }) {
 
   const earnings = providerBookings.reduce((sum, b) => sum + (b.status !== 'cancelled' ? b.total : 0), 0);
 
-  function toggleActive(id) {
-    setActiveMap((m) => ({ ...m, [id]: !m[id] }));
+  async function toggleActive(id) {
+    const nextActive = !activeMap[id];
+    if (await updateVehicleStatus(id, nextActive ? 'published' : 'paused')) {
+      setActiveMap((current) => ({ ...current, [id]: nextActive }));
+    }
   }
 
   return (
@@ -40,8 +47,8 @@ export default function ProviderDashboardScreen({ navigation }) {
             <Text style={styles.statLabel}>Earnings</Text>
           </View>
           <View style={[styles.stat, shadow.soft]}>
-            <Text style={styles.statValue}>348</Text>
-            <Text style={styles.statLabel}>Views</Text>
+            <Text style={styles.statValue}>{providerBookings.length}</Text>
+            <Text style={styles.statLabel}>Bookings</Text>
           </View>
         </View>
 

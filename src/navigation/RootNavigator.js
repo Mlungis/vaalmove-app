@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import OnboardingScreen from '../screens/OnboardingScreen';
@@ -7,6 +7,7 @@ import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import MainTabs from './MainTabs';
+import { useAppContext } from '../AppContext';
 
 const Stack = createNativeStackNavigator();
 
@@ -22,9 +23,20 @@ function BackButton({ navigation }) {
 }
 
 export default function RootNavigator() {
+  const { session, authLoading } = useAppContext();
+
+  if (authLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#07152D' }}>
+        <ActivityIndicator color="#57D9FF" />
+      </View>
+    );
+  }
+
   return (
     <Stack.Navigator
-      initialRouteName="Onboarding"
+      key={session ? 'authenticated' : 'guest'}
+      initialRouteName={session ? 'Main' : 'Onboarding'}
       screenOptions={({ navigation }) => ({
         headerShown: true,
         headerTransparent: true,

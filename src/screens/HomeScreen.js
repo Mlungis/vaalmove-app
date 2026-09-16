@@ -15,9 +15,10 @@ const quickServices = [
 ];
 
 export default function HomeScreen({ navigation }) {
-  const { vehicles, unreadNotifications, user } = useAppContext();
+  const { vehicles, bookings, unreadNotifications, user } = useAppContext();
   const [query, setQuery] = React.useState('');
   const firstName = (user?.name || 'there').split(' ')[0];
+  const trackableBooking = bookings.find((booking) => ['upcoming', 'active'].includes(booking.status));
 
   function handleSearchSubmit() {
     navigation.navigate('SearchFilter', { query });
@@ -83,7 +84,7 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.heroContent}>
               <Text style={styles.heroTag}>Premium pickup</Text>
               <Text style={styles.heroTitle}>Drive in comfort across town</Text>
-              <Text style={styles.heroMeta}>Available in Vereeniging • 24/7</Text>
+              <Text style={styles.heroMeta}>{vehicles.length ? 'Available near you' : 'Listings from local providers appear here'}</Text>
             </View>
           </Pressable>
 
@@ -128,10 +129,17 @@ export default function HomeScreen({ navigation }) {
             ))}
           </View>
 
-          <Pressable style={styles.trackBanner} onPress={() => navigation.navigate('VehicleTracking', { id: 'v1' })}>
+          <Pressable
+            style={styles.trackBanner}
+            onPress={() => trackableBooking
+              ? navigation.navigate('VehicleTracking', { id: trackableBooking.vehicleId })
+              : navigation.navigate('Bookings')}
+          >
             <View style={{ flex: 1 }}>
               <Text style={styles.trackBannerTitle}>Live dispatch</Text>
-              <Text style={styles.trackBannerSubtitle}>Track your driver and vehicle location in real time.</Text>
+              <Text style={styles.trackBannerSubtitle}>
+                {trackableBooking ? 'Track your driver and vehicle location in real time.' : 'Your live tracking updates will appear here after booking.'}
+              </Text>
             </View>
             <View style={styles.trackBadge}>
               <Ionicons name="navigate-outline" size={17} color={colors.skyBottom} />

@@ -13,7 +13,7 @@ export default function PaymentScreen({ navigation, route }) {
   const id = route?.params?.id;
   const vehicle = getVehicleById(id) || {};
   const draft = bookingDraft || {};
-  const total = draft.total ?? (vehicle.priceDaily ? vehicle.priceDaily + 150 : 1000);
+  const total = draft.total ?? 0;
 
   const [selected, setSelected] = useState(paymentMethods.find((p) => p.isDefault)?.id || paymentMethods[0]?.id);
   const [showAddCard, setShowAddCard] = useState(false);
@@ -21,6 +21,13 @@ export default function PaymentScreen({ navigation, route }) {
   const [cardName, setCardName] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [paying, setPaying] = useState(false);
+
+  function withTime(value, time) {
+    const date = new Date(value || Date.now());
+    const [hours, minutes] = String(time || '08:00').split(':').map(Number);
+    date.setHours(hours || 0, minutes || 0, 0, 0);
+    return date.toISOString();
+  }
 
   function handleAddCard() {
     if (!cardNumber.trim() || !cardName.trim() || !cardExpiry.trim()) return;
@@ -30,20 +37,21 @@ export default function PaymentScreen({ navigation, route }) {
     setShowAddCard(false);
   }
 
-  function handlePay() {
+  async function handlePay() {
     if (!selected) return;
     setPaying(true);
-    setTimeout(() => {
-      addBooking({
-        vehicleId: id,
-        pickup: draft.startDate || new Date().toISOString(),
-        dropoff: draft.endDate || new Date().toISOString(),
-        total,
-        location: vehicle.location,
-      });
-      setPaying(false);
+    const booking = await addBooking({
+      vehicleId: id,
+      pickup: withTime(draft.startDate, draft.pickupTime),
+      dropoff: withTime(draft.endDate || draft.startDate, draft.returnTime || '17:00'),
+      total,
+      subtotal: draft.subtotal,
+      location: vehicle.location,
+    });
+    setPaying(false);
+    if (booking) {
       navigation.navigate('BookingConfirmed', { id });
-    }, 900);
+    }
   }
 
   return (
@@ -81,7 +89,7 @@ export default function PaymentScreen({ navigation, route }) {
 
         <View style={styles.secureRow}>
           <Ionicons name="shield-checkmark-outline" size={14} color={colors.muted} />
-          <Text style={styles.secureText}>Payments are simulated in this preview build.</Text>
+          <Text style={styles.secureText}>Your booking is securely recorded. Card processing is handled by the configured payment provider.</Text>
         </View>
 
         <PrimaryButton

@@ -14,23 +14,23 @@ export default function AddListingScreen({ navigation }) {
   const [price, setPrice] = useState('');
   const [year, setYear] = useState('');
   const [minDays, setMinDays] = useState('2');
-  const [pickupLocation, setPickupLocation] = useState('Vereeniging, Gauteng');
+  const [pickupLocation, setPickupLocation] = useState('');
   const [insurance, setInsurance] = useState('Full cover');
   const [photos, setPhotos] = useState([]);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const next = {};
     if (!title.trim()) next.title = 'Give your listing a title.';
     if (!price.trim()) next.price = 'Set a daily price.';
+    if (!pickupLocation.trim()) next.location = 'Add a pickup location.';
     if (photos.length === 0) next.photos = 'Add at least one photo of the vehicle.';
     setErrors(next);
     if (Object.keys(next).length) return;
 
     setSubmitting(true);
-    setTimeout(() => {
-      addVehicleListing({
+    const result = await addVehicleListing({
         title: title.trim(),
         category,
         priceDaily: Number(price) || 0,
@@ -38,7 +38,7 @@ export default function AddListingScreen({ navigation }) {
         fuel: 'Diesel',
         transmission: 'Manual',
         provider: user.providerName,
-        location: pickupLocation || 'Vereeniging, Gauteng',
+        location: pickupLocation.trim(),
         image: photos[0],
         gallery: photos,
         minDays: Number(minDays) || 1,
@@ -47,12 +47,13 @@ export default function AddListingScreen({ navigation }) {
         verification: { idVerified: true, insured: true, businessVerified: true },
         pricingRules: { weekendSurcharge: 10, weeklyDiscount: 8, minDays: Number(minDays) || 1, cancellation: 'Free cancellation up to 48 hours' },
         availabilityNote: 'Available for immediate bookings with instant confirmation.',
-      });
-      setSubmitting(false);
+    });
+    setSubmitting(false);
+    if (result) {
       Alert.alert('Listing added', 'Your new vehicle is now live for renters to find.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    }, 500);
+    }
   }
 
   return (
@@ -117,12 +118,13 @@ export default function AddListingScreen({ navigation }) {
 
         <Text style={styles.label}>Pickup location</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.location && styles.inputError]}
           placeholder="Vereeniging, Gauteng"
           placeholderTextColor={colors.muted}
           value={pickupLocation}
-          onChangeText={setPickupLocation}
+          onChangeText={(value) => { setPickupLocation(value); if (errors.location) setErrors((e) => ({ ...e, location: null })); }}
         />
+        {errors.location ? <Text style={styles.errorText}>{errors.location}</Text> : null}
 
         <Text style={styles.label}>Insurance / cover</Text>
         <TextInput

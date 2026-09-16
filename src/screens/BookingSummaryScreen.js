@@ -58,7 +58,7 @@ export default function BookingSummaryScreen({ navigation, route }) {
         <View style={[styles.detailCard, shadow.soft]}>
           <View style={styles.row}><Text style={styles.label}>Pickup</Text><Text style={styles.value}>{fmt(draft.startDate)} · {draft.pickupTime || '08:00'}</Text></View>
           <View style={styles.row}><Text style={styles.label}>Return</Text><Text style={styles.value}>{fmt(draft.endDate)} · {draft.returnTime || '17:00'}</Text></View>
-          <View style={[styles.row, { borderBottomWidth: 0 }]}><Text style={styles.label}>Location</Text><Text style={styles.value}>{vehicle.location || 'Vereeniging, Gauteng'}</Text></View>
+          <View style={[styles.row, { borderBottomWidth: 0 }]}><Text style={styles.label}>Location</Text><Text style={styles.value}>{vehicle.location || 'Provider pickup location'}</Text></View>
         </View>
 
         <View style={styles.promoRow}>

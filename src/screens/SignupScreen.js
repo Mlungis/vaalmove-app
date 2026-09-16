@@ -16,6 +16,7 @@ import TextField from '../components/TextField';
 import { PrimaryButton } from '../components/Buttons';
 import { colors, fonts, radius } from '../theme';
 import { useAppContext } from '../AppContext';
+import { supabase } from '../lib/supabase';
 
 function initialsFor(name) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -37,7 +38,7 @@ export default function SignupScreen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     const next = {};
     if (!fullName.trim()) next.fullName = 'Full name is required.';
     if (!email.trim()) next.email = 'Email is required.';
@@ -51,16 +52,40 @@ export default function SignupScreen({ navigation }) {
     setErrors(next);
     if (Object.keys(next).length === 0) {
       setLoading(true);
-      setTimeout(() => {
-        updateUser({
-          name: fullName.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          initials: initialsFor(fullName),
-        });
-        setLoading(false);
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+            phone: phone.trim(),
+          },
+        },
+      });
+      setLoading(false);
+
+      if (error) {
+        setErrors({ form: error.message });
+        return;
+      }
+
+      updateUser({
+        name: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        initials: initialsFor(fullName),
+      });
+
+      if (!data.session) {
+        Alert.alert('Check your email', 'Confirm your email address before logging in.', [
+          { text: 'OK', onPress: () => navigation.navigate('Login') },
+        ]);
+        return;
+      }
+
+      if (data.user) {
         navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-      }, 500);
+      }
     }
   };
 
@@ -178,6 +203,7 @@ export default function SignupScreen({ navigation }) {
               </View>
 
               <PrimaryButton label={loading ? 'Creating account…' : 'Create Account'} onPress={loading ? undefined : handleSignup} />
+              {errors.form ? <Text style={styles.formError}>{errors.form}</Text> : null}
             </View>
           </GlassView>
 
@@ -221,6 +247,7 @@ const styles = StyleSheet.create({
   checkboxChecked: { backgroundColor: '#fff', borderColor: '#fff' },
   checkboxLabel: { flex: 1, fontFamily: fonts.body, fontSize: 12.5, color: 'rgba(255,255,255,0.8)', lineHeight: 18 },
   termsError: { fontFamily: fonts.bodySemi, fontSize: 12, color: '#FFD9D9', marginBottom: 14 },
+  formError: { color: '#FFB4B4', fontFamily: fonts.bodySemi, fontSize: 12, marginTop: 10, textAlign: 'center' },
   socialSection: { marginTop: 8, marginBottom: 18 },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },

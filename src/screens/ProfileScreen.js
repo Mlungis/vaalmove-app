@@ -8,7 +8,7 @@ import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
 
 export default function ProfileScreen({ navigation }) {
-  const { user, favoriteVehicles, bookings } = useAppContext();
+  const { user, favoriteVehicles, bookings, signOut } = useAppContext();
 
   function handleLogout() {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -16,7 +16,7 @@ export default function ProfileScreen({ navigation }) {
       {
         text: 'Log out',
         style: 'destructive',
-        onPress: () => navigation.getParent()?.getParent()?.reset({ index: 0, routes: [{ name: 'Onboarding' }] }),
+        onPress: () => signOut(),
       },
     ]);
   }

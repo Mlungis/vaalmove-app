@@ -26,7 +26,7 @@ export default function BookingConfirmedScreen({ navigation, route }) {
           <Ionicons name="checkmark" size={54} color="#fff" />
         </View>
         <Text style={styles.title}>Your booking is confirmed!</Text>
-        <Text style={styles.sub}>Booking ID: {latest.code || 'VM2505247846'}</Text>
+        <Text style={styles.sub}>Booking ID: {latest.code || 'Pending confirmation'}</Text>
 
         <View style={[styles.card, shadow.soft]}>
           <Text style={styles.cardTitle}>{vehicle.title || 'Vehicle'}</Text>

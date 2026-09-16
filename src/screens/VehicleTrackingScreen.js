@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Share, Alert, Image, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
+import EmptyState from '../components/EmptyState';
 import { useAppContext } from '../AppContext';
 import { colors, fonts, radius, shadow } from '../theme';
 
@@ -16,11 +17,70 @@ if (Platform.OS !== 'web') {
   Polyline = mapLib.Polyline;
 }
 
+const WEB_MAP_ZOOM = 12;
+const WEB_TILE_SIZE = 256;
+
+function longitudeToTile(longitude, zoom) {
+  return Math.floor(((longitude + 180) / 360) * (2 ** zoom));
+}
+
+function latitudeToTile(latitude, zoom) {
+  const radians = (latitude * Math.PI) / 180;
+  return Math.floor(
+    ((1 - Math.log(Math.tan(radians) + (1 / Math.cos(radians))) / Math.PI) / 2) * (2 ** zoom)
+  );
+}
+
+function WebMap({ tracking, onOpenMap }) {
+  const center = tracking.vehicleLocation;
+  const centerTileX = longitudeToTile(center.longitude, WEB_MAP_ZOOM);
+  const centerTileY = latitudeToTile(center.latitude, WEB_MAP_ZOOM);
+  const tiles = [];
+
+  for (let row = -1; row <= 1; row += 1) {
+    for (let column = -1; column <= 1; column += 1) {
+      const tileX = centerTileX + column;
+      const tileY = centerTileY + row;
+      tiles.push(
+        <Image
+          key={`${tileX}-${tileY}`}
+          source={{ uri: `https://tile.openstreetmap.org/${WEB_MAP_ZOOM}/${tileX}/${tileY}.png` }}
+          style={[styles.webTile, { left: (column + 1) * WEB_TILE_SIZE, top: (row + 1) * WEB_TILE_SIZE }]}
+        />
+      );
+    }
+  }
+
+  return (
+    <TouchableOpacity style={styles.webMap} activeOpacity={0.9} onPress={onOpenMap}>
+      {tiles}
+      <View style={[styles.webMarker, styles.driverMarker]}>
+        <Ionicons name="car" size={14} color="#fff" />
+      </View>
+      <View style={[styles.webMarker, styles.vehicleMarker]}>
+        <Ionicons name="location" size={17} color="#fff" />
+      </View>
+      <View style={styles.webMapBadge}>
+        <Text style={styles.webMapBadgeText}>OpenStreetMap · Tap to open</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function VehicleTrackingScreen({ navigation, route }) {
   const { getVehicleById, getVehicleTracking } = useAppContext();
-  const id = route?.params?.id || route?.params?.vehicleId || 'v1';
+  const id = route?.params?.id || route?.params?.vehicleId;
   const vehicle = getVehicleById(id) || {};
   const tracking = getVehicleTracking(id);
+
+  if (!tracking) {
+    return (
+      <View style={styles.container}>
+        <Header title="Live Tracking" subtitle={vehicle.title || 'Vehicle'} onBack={() => navigation.goBack()} />
+        <EmptyState icon="location-outline" title="Tracking is not available" subtitle="Live location updates will appear here when the provider starts tracking this booking." />
+      </View>
+    );
+  }
 
   const initialRegion = {
     latitude: (tracking.driverLocation.latitude + tracking.vehicleLocation.latitude) / 2,
@@ -39,16 +99,18 @@ export default function VehicleTrackingScreen({ navigation, route }) {
     Alert.alert('Driver contact', `${tracking.driverName} is on the way and should be with you in ${tracking.eta}.`);
   }
 
+  function handleOpenMap() {
+    const { latitude, longitude } = tracking.vehicleLocation;
+    Linking.openURL(`https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=14/${latitude}/${longitude}`);
+  }
+
   return (
     <View style={styles.container}>
       <Header title="Live Tracking" subtitle={vehicle.title || 'Vehicle'} onBack={() => navigation.goBack()} />
 
       <View style={styles.mapWrap}>
         {Platform.OS === 'web' ? (
-          <View style={styles.webMapPlaceholder}>
-            <Ionicons name="map-outline" size={30} color={colors.muted} />
-            <Text style={styles.webMapText}>Live map preview is available on mobile devices.</Text>
-          </View>
+          <WebMap tracking={tracking} onOpenMap={handleOpenMap} />
         ) : (
           <MapView style={styles.map} initialRegion={initialRegion} showsCompass showsUserLocation>
             <Polyline coordinates={tracking.route} strokeColor={colors.skyBottom} strokeWidth={4} />
@@ -109,18 +171,53 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface },
   mapWrap: { flex: 1, minHeight: 320 },
   map: { flex: 1 },
-  webMapPlaceholder: {
+  webMap: {
     flex: 1,
-    backgroundColor: '#E8F2FC',
+    minHeight: 320,
+    overflow: 'hidden',
+    backgroundColor: '#DCE9D5',
+  },
+  webTile: {
+    position: 'absolute',
+    width: WEB_TILE_SIZE,
+    height: WEB_TILE_SIZE,
+  },
+  webMarker: {
+    position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 28,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  webMapText: {
-    marginTop: 12,
-    textAlign: 'center',
-    fontFamily: fonts.body,
-    fontSize: 13,
+  driverMarker: {
+    left: '43%',
+    top: '38%',
+    backgroundColor: '#2FA85B',
+  },
+  vehicleMarker: {
+    left: '57%',
+    top: '56%',
+    backgroundColor: '#14459E',
+  },
+  webMapBadge: {
+    position: 'absolute',
+    left: 12,
+    bottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  webMapBadgeText: {
+    fontFamily: fonts.bodySemi,
+    fontSize: 11,
     color: colors.inkSoft,
   },
   card: {

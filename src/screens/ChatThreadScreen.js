@@ -15,7 +15,7 @@ const QUICK_ACTIONS = [
 ];
 
 export default function ChatThreadScreen({ navigation, route }) {
-  const { conversations, sendMessage, simulateReply, markConversationRead } = useAppContext();
+  const { conversations, sendMessage, markConversationRead } = useAppContext();
   const id = route?.params?.id;
   const conversation = conversations.find((c) => c.id === id);
   const [text, setText] = useState('');
@@ -39,10 +39,6 @@ export default function ChatThreadScreen({ navigation, route }) {
     sendMessage(id, text.trim());
     setText('');
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    setTimeout(() => {
-      simulateReply(id);
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    }, 1400);
   }
 
   return (

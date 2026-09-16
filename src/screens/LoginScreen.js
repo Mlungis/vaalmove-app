@@ -16,6 +16,7 @@ import TextField from '../components/TextField';
 import { PrimaryButton } from '../components/Buttons';
 import { fonts, radius } from '../theme';
 import { useAppContext } from '../AppContext';
+import { supabase } from '../lib/supabase';
 
 export default function LoginScreen({ navigation }) {
   const { updateUser } = useAppContext();
@@ -25,7 +26,7 @@ export default function LoginScreen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const next = {};
     if (!email.trim()) next.email = 'Email is required.';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = 'Enter a valid email address.';
@@ -33,11 +34,21 @@ export default function LoginScreen({ navigation }) {
     setErrors(next);
     if (Object.keys(next).length === 0) {
       setLoading(true);
-      setTimeout(() => {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      setLoading(false);
+
+      if (error) {
+        setErrors({ form: error.message });
+        return;
+      }
+
+      if (data.user) {
         updateUser({ email: email.trim() });
-        setLoading(false);
         navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-      }, 500);
+      }
     }
   };
 
@@ -123,6 +134,7 @@ export default function LoginScreen({ navigation }) {
               </View>
 
               <PrimaryButton label={loading ? 'Logging in…' : 'Log In'} onPress={loading ? undefined : handleLogin} />
+              {errors.form ? <Text style={styles.formError}>{errors.form}</Text> : null}
             </View>
           </GlassView>
 
@@ -170,6 +182,7 @@ const styles = StyleSheet.create({
   cardInner: { width: '100%', padding: 22 },
   forgot: { alignSelf: 'flex-end', marginTop: -6, marginBottom: 18 },
   forgotText: { fontFamily: fonts.bodySemi, fontSize: 12.5, color: 'rgba(255,255,255,0.8)' },
+  formError: { color: '#FFB4B4', fontFamily: fonts.bodySemi, fontSize: 12, marginTop: 10, textAlign: 'center' },
   socialSection: { marginTop: 8, marginBottom: 18 },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },

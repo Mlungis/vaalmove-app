@@ -14,6 +14,7 @@ import GlassView from '../components/GlassView';
 import TextField from '../components/TextField';
 import { PrimaryButton } from '../components/Buttons';
 import { fonts, radius } from '../theme';
+import { supabase } from '../lib/supabase';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -21,15 +22,15 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  function handleSend() {
+  async function handleSend() {
     if (!email.trim()) return setError('Email is required.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError('Enter a valid email address.');
     setError('');
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setSent(true);
-    }, 600);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
+    setLoading(false);
+    if (resetError) return setError(resetError.message);
+    setSent(true);
   }
 
   return (

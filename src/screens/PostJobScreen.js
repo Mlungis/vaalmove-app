@@ -21,7 +21,7 @@ export default function PostJobScreen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const next = {};
     if (!description.trim()) next.description = 'Please describe what you need.';
     if (!budget.trim()) next.budget = 'Add a budget so providers can quote accurately.';
@@ -31,13 +31,11 @@ export default function PostJobScreen({ navigation }) {
     if (Object.keys(next).length) return;
 
     setSubmitting(true);
-    setTimeout(() => {
-      addPostedJob({ jobType, description, budget, dateNeeded, contact, photos });
-      setSubmitting(false);
+    await addPostedJob({ jobType, description, budget, dateNeeded, contact, photos });
+    setSubmitting(false);
       Alert.alert('Job posted', 'Local providers can now see your job and photos, and send quotes.', [
         { text: 'OK', onPress: () => navigation.getParent()?.navigate('Bookings') },
       ]);
-    }, 500);
   }
 
   return (

@@ -68,3 +68,14 @@ src/
 navigate straight into the app (`navigation.reset(...)` to `Main`).
 Replace `handleLogin` / `handleSignup` with your actual auth calls
 (e.g. a fetch to your ASP.NET Core API) and only navigate on success.
+
+### Recommended backend
+
+For this Expo app, Supabase is the quickest production-ready option: it
+provides Postgres, email/phone authentication, vehicle photo storage, and
+realtime booking/tracking updates in one service. Keep the Supabase anon key
+in Expo public configuration and enforce access with Row Level Security.
+
+Firebase is also suitable if realtime mobile sync is the priority. An
+ASP.NET Core API with PostgreSQL is the better choice if the project already
+needs custom business rules, payment webhooks, or an existing .NET team.
