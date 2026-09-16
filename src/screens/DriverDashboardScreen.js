@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
+import EmptyState from '../components/EmptyState';
 import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
 
@@ -34,7 +35,7 @@ export default function DriverDashboardScreen({ navigation }) {
         </View>
 
         <View style={styles.listCard}>
-          {data.routeHealth.map((item) => (
+          {data.routeHealth.length ? data.routeHealth.map((item) => (
             <View key={item.id} style={styles.routeItem}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.routeTitle}>{item.route}</Text>
@@ -45,19 +46,19 @@ export default function DriverDashboardScreen({ navigation }) {
                 <Text style={styles.routeEta}>{item.eta}</Text>
               </View>
             </View>
-          ))}
+          )) : <EmptyState icon="map-outline" title="No active routes" subtitle="Routes will appear when your vehicles have confirmed or active bookings." />}
         </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Alerts</Text>
         </View>
         <View style={styles.alertCard}>
-          {data.liveAlerts.map((alert) => (
+          {data.liveAlerts.length ? data.liveAlerts.map((alert) => (
             <View key={alert} style={styles.alertRow}>
               <Ionicons name="alert-circle" size={15} color={colors.warning} />
               <Text style={styles.alertText}>{alert}</Text>
             </View>
-          ))}
+          )) : <Text style={styles.emptyText}>No current alerts.</Text>}
         </View>
 
         <View style={styles.sectionHeader}>
@@ -98,6 +99,7 @@ const styles = StyleSheet.create({
   statusWarning: { backgroundColor: colors.warningBg, color: colors.warning },
   statusSuccess: { backgroundColor: colors.successBg, color: colors.success },
   alertCard: { backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 12, borderWidth: 1, borderColor: colors.hairline },
+  emptyText: { fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, paddingVertical: 8 },
   alertRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 8 },
   alertText: { flex: 1, fontFamily: fonts.body, fontSize: 12.5, color: colors.inkSoft, lineHeight: 18 },
   reminderRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

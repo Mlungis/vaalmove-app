@@ -8,8 +8,10 @@ import { useAppContext } from '../AppContext';
 export default function BookingConfirmedScreen({ navigation, route }) {
   const { getVehicleById, bookings } = useAppContext();
   const id = route?.params?.id;
+  const bookingId = route?.params?.bookingId;
   const vehicle = getVehicleById(id) || {};
-  const latest = bookings[0] || {};
+  const latest = bookings.find((booking) => booking.id === bookingId) || bookings[0] || {};
+  const isPending = latest.paymentStatus !== 'paid' || latest.rawStatus === 'pending';
 
   function handleShare() {
     Share.share({ message: `Booked ${vehicle.title} on LexRidesZA — booking ${latest.code}.` }).catch(() => {});
@@ -25,7 +27,7 @@ export default function BookingConfirmedScreen({ navigation, route }) {
         <View style={styles.tick}>
           <Ionicons name="checkmark" size={54} color="#fff" />
         </View>
-        <Text style={styles.title}>Your booking is confirmed!</Text>
+        <Text style={styles.title}>{isPending ? 'Your booking request was submitted' : 'Your booking is confirmed!'}</Text>
         <Text style={styles.sub}>Booking ID: {latest.code || 'Pending confirmation'}</Text>
 
         <View style={[styles.card, shadow.soft]}>
@@ -33,7 +35,7 @@ export default function BookingConfirmedScreen({ navigation, route }) {
           <Text style={styles.cardMeta}>{vehicle.provider} · {vehicle.location}</Text>
           <View style={styles.divider} />
           <View style={styles.row}>
-            <Text style={styles.rowLabel}>Total paid</Text>
+            <Text style={styles.rowLabel}>{isPending ? 'Amount due' : 'Total paid'}</Text>
             <Text style={styles.rowValue}>R{latest.total}</Text>
           </View>
         </View>

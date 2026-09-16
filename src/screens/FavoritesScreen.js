@@ -26,7 +26,7 @@ export default function FavoritesScreen({ navigation }) {
               key={it.id}
               style={[styles.card, shadow.soft]}
               activeOpacity={0.85}
-              onPress={() => navigation.navigate('VehicleDetails', { id: it.id })}
+              onPress={() => navigation.getParent()?.navigate('Home', { screen: 'VehicleDetails', params: { id: it.id } })}
             >
               <Image source={{ uri: it.image }} style={styles.thumb} />
               <View style={styles.body}>

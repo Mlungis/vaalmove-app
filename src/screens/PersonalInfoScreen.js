@@ -19,12 +19,16 @@ export default function PersonalInfoScreen({ navigation }) {
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone);
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim() || !email.trim()) {
       Alert.alert('Missing info', 'Name and email are required.');
       return;
     }
-    updateUser({ name: name.trim(), email: email.trim(), phone: phone.trim(), initials: initialsFor(name) });
+    const saved = await updateUser({ name: name.trim(), email: email.trim(), phone: phone.trim(), initials: initialsFor(name) });
+    if (!saved) {
+      Alert.alert('Could not save', 'Please try again.');
+      return;
+    }
     Alert.alert('Saved', 'Your personal information has been updated.', [
       { text: 'OK', onPress: () => navigation.goBack() },
     ]);

@@ -68,8 +68,9 @@ function WebMap({ tracking, onOpenMap }) {
 }
 
 export default function VehicleTrackingScreen({ navigation, route }) {
-  const { getVehicleById, getVehicleTracking } = useAppContext();
-  const id = route?.params?.id || route?.params?.vehicleId;
+  const { getVehicleById, getVehicleTracking, bookings } = useAppContext();
+  const requestedId = route?.params?.id || route?.params?.vehicleId;
+  const id = requestedId || bookings.find((booking) => ['upcoming', 'active'].includes(booking.status))?.vehicleId;
   const vehicle = getVehicleById(id) || {};
   const tracking = getVehicleTracking(id);
 

@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
 import Header from '../components/Header';
 import Chip from '../components/Chip';
 import ListRow from '../components/ListRow';
 import { colors, fonts, radius, shadow } from '../theme';
+import { useAppContext } from '../AppContext';
 
 export default function SettingsScreen({ navigation }) {
-  const [language, setLanguage] = useState('English');
-  const [currency, setCurrency] = useState('ZAR (R)');
-  const [darkMode, setDarkMode] = useState(false);
-  const [biometric, setBiometric] = useState(true);
+  const { appSettings, updateAppSettings } = useAppContext();
+  const { language, currency, darkMode, biometric } = appSettings;
 
   return (
     <View style={styles.container}>
@@ -18,14 +17,14 @@ export default function SettingsScreen({ navigation }) {
         <Text style={styles.sectionLabel}>Language</Text>
         <View style={styles.chipRow}>
           {['English', 'Afrikaans', 'isiZulu', 'Sesotho'].map((l) => (
-            <Chip key={l} label={l} active={language === l} onPress={() => setLanguage(l)} />
+            <Chip key={l} label={l} active={language === l} onPress={() => updateAppSettings({ language: l })} />
           ))}
         </View>
 
         <Text style={styles.sectionLabel}>Currency</Text>
         <View style={styles.chipRow}>
           {['ZAR (R)', 'USD ($)'].map((c) => (
-            <Chip key={c} label={c} active={currency === c} onPress={() => setCurrency(c)} />
+            <Chip key={c} label={c} active={currency === c} onPress={() => updateAppSettings({ currency: c })} />
           ))}
         </View>
 
@@ -33,11 +32,11 @@ export default function SettingsScreen({ navigation }) {
         <View style={[styles.card, shadow.soft]}>
           <View style={styles.row}>
             <Text style={styles.label}>Dark mode</Text>
-            <Switch value={darkMode} onValueChange={setDarkMode} trackColor={{ false: colors.hairline, true: colors.skyMid }} thumbColor="#fff" />
+            <Switch value={darkMode} onValueChange={(value) => updateAppSettings({ darkMode: value })} trackColor={{ false: colors.hairline, true: colors.skyMid }} thumbColor="#fff" />
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <Text style={styles.label}>Biometric login (Face/Touch ID)</Text>
-            <Switch value={biometric} onValueChange={setBiometric} trackColor={{ false: colors.hairline, true: colors.skyMid }} thumbColor="#fff" />
+            <Switch value={biometric} onValueChange={(value) => updateAppSettings({ biometric: value })} trackColor={{ false: colors.hairline, true: colors.skyMid }} thumbColor="#fff" />
           </View>
         </View>
 

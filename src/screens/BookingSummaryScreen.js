@@ -16,32 +16,17 @@ export default function BookingSummaryScreen({ navigation, route }) {
   const id = route?.params?.id;
   const vehicle = getVehicleById(id) || {};
   const draft = bookingDraft || {};
-  const [promo, setPromo] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
   const subtotal = draft.subtotal ?? vehicle.priceDaily ?? 0;
-  const insurance = 100;
-  const serviceFee = 50;
-  const discount = promoApplied ? Math.round(subtotal * 0.1) : 0;
-  const total = subtotal + insurance + serviceFee - discount;
-
-  function applyPromo() {
-    if (!promo.trim()) return;
-    if (promo.trim().toUpperCase() === 'LEX10') {
-      setPromoApplied(true);
-      Alert.alert('Promo applied', '10% discount applied to your rental subtotal.');
-    } else {
-      Alert.alert('Invalid code', 'That promo code is not valid. Try LEX10.');
-    }
-  }
+  const total = subtotal;
 
   function handleContinue() {
     if (!agreed) {
       Alert.alert('Almost there', 'Please accept the rental terms to continue.');
       return;
     }
-    setBookingDraft({ ...draft, insurance, serviceFee, discount, total });
+    setBookingDraft({ ...draft, total });
     navigation.navigate('Payment', { id });
   }
 
@@ -61,27 +46,9 @@ export default function BookingSummaryScreen({ navigation, route }) {
           <View style={[styles.row, { borderBottomWidth: 0 }]}><Text style={styles.label}>Location</Text><Text style={styles.value}>{vehicle.location || 'Provider pickup location'}</Text></View>
         </View>
 
-        <View style={styles.promoRow}>
-          <TextInput
-            style={styles.promoInput}
-            placeholder="Promo code (try LEX10)"
-            placeholderTextColor={colors.muted}
-            value={promo}
-            onChangeText={setPromo}
-            autoCapitalize="characters"
-          />
-          <TouchableOpacity style={styles.promoBtn} onPress={applyPromo}>
-            <Text style={styles.promoBtnText}>Apply</Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={[styles.feesCard, shadow.soft]}>
           <View style={styles.row}><Text style={styles.feeLabel}>{draft.days || 1} Day{(draft.days || 1) === 1 ? '' : 's'} Rental</Text><Text style={styles.feeValue}>R{subtotal}</Text></View>
-          <View style={styles.row}><Text style={styles.feeLabel}>Insurance</Text><Text style={styles.feeValue}>R{insurance}</Text></View>
-          <View style={[styles.row, { borderBottomWidth: discount ? 1 : 0 }]}><Text style={styles.feeLabel}>Service Fee</Text><Text style={styles.feeValue}>R{serviceFee}</Text></View>
-          {discount ? (
-            <View style={[styles.row, { borderBottomWidth: 0 }]}><Text style={[styles.feeLabel, { color: colors.success }]}>Promo discount</Text><Text style={[styles.feeValue, { color: colors.success }]}>-R{discount}</Text></View>
-          ) : null}
+          <View style={[styles.row, { borderBottomWidth: 0 }]}><Text style={styles.feeLabel}>Insurance</Text><Text style={styles.feeValue}>Provider terms</Text></View>
           <View style={[styles.row, { marginTop: 6, borderBottomWidth: 0 }]}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>R{total}</Text>
@@ -111,10 +78,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.hairline },
   label: { color: colors.muted, fontFamily: fonts.body, fontSize: 13 },
   value: { color: colors.ink, fontFamily: fonts.bodySemi, fontSize: 13 },
-  promoRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  promoInput: { flex: 1, backgroundColor: colors.surfaceAlt, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, fontFamily: fonts.body, fontSize: 13, color: colors.ink },
-  promoBtn: { backgroundColor: colors.ink, paddingHorizontal: 18, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  promoBtnText: { color: '#fff', fontFamily: fonts.bodySemi, fontSize: 13 },
   feesCard: { backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 14, marginTop: 14 },
   feeLabel: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSoft },
   feeValue: { fontFamily: fonts.body, fontSize: 13, color: colors.ink },

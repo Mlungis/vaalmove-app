@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -22,6 +22,12 @@ export default function PaymentScreen({ navigation, route }) {
   const [cardExpiry, setCardExpiry] = useState('');
   const [paying, setPaying] = useState(false);
 
+  useEffect(() => {
+    if (!selected && paymentMethods.length) {
+      setSelected(paymentMethods.find((method) => method.isDefault)?.id || paymentMethods[0].id);
+    }
+  }, [paymentMethods, selected]);
+
   function withTime(value, time) {
     const date = new Date(value || Date.now());
     const [hours, minutes] = String(time || '08:00').split(':').map(Number);
@@ -29,16 +35,17 @@ export default function PaymentScreen({ navigation, route }) {
     return date.toISOString();
   }
 
-  function handleAddCard() {
+  async function handleAddCard() {
     if (!cardNumber.trim() || !cardName.trim() || !cardExpiry.trim()) return;
     const last4 = cardNumber.slice(-4).padStart(4, '•');
-    addPaymentMethod({ type: 'card', label: `Card •••• ${last4}`, meta: `Expires ${cardExpiry}` });
+    const method = await addPaymentMethod({ type: 'card', label: `Card •••• ${last4}`, meta: `Expires ${cardExpiry}` });
+    if (!method) return;
+    setSelected(method.id);
     setCardNumber(''); setCardName(''); setCardExpiry('');
     setShowAddCard(false);
   }
 
   async function handlePay() {
-    if (!selected) return;
     setPaying(true);
     const booking = await addBooking({
       vehicleId: id,
@@ -50,7 +57,7 @@ export default function PaymentScreen({ navigation, route }) {
     });
     setPaying(false);
     if (booking) {
-      navigation.navigate('BookingConfirmed', { id });
+      navigation.navigate('BookingConfirmed', { id, bookingId: booking.id });
     }
   }
 
@@ -86,15 +93,17 @@ export default function PaymentScreen({ navigation, route }) {
             <Text style={[styles.methodLabel, { color: colors.skyBottom }]}>Add new card</Text>
           </TouchableOpacity>
         </View>
+        {!paymentMethods.length ? <Text style={styles.emptyMethods}>Add a payment method before submitting this booking.</Text> : null}
 
         <View style={styles.secureRow}>
           <Ionicons name="shield-checkmark-outline" size={14} color={colors.muted} />
-          <Text style={styles.secureText}>Your booking is securely recorded. Card processing is handled by the configured payment provider.</Text>
+          <Text style={styles.secureText}>Your booking is recorded as pending until the provider confirms payment.</Text>
         </View>
 
         <PrimaryButton
-          label={paying ? 'Processing…' : 'Pay Now'}
-          onPress={paying ? undefined : handlePay}
+          label={paying ? 'Saving booking…' : 'Confirm booking'}
+          onPress={paying || !selected ? undefined : handlePay}
+          disabled={!selected}
           style={{ backgroundColor: colors.skyBottom }}
         />
         {paying ? <ActivityIndicator style={{ marginTop: 14 }} color={colors.skyBottom} /> : null}
@@ -157,6 +166,7 @@ const styles = StyleSheet.create({
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.skyBottom },
   secureRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16, marginBottom: 18 },
   secureText: { fontFamily: fonts.body, fontSize: 11.5, color: colors.muted },
+  emptyMethods: { fontFamily: fonts.body, fontSize: 12, color: colors.warning, marginTop: 8 },
   modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
   modalCard: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingBottom: 32 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },

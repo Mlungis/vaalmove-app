@@ -15,10 +15,11 @@ export default function PaymentMethodsScreen({ navigation }) {
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!cardNumber.trim() || !cardExpiry.trim()) return;
     const last4 = cardNumber.slice(-4).padStart(4, '•');
-    addPaymentMethod({ type: 'card', label: `Card •••• ${last4}`, meta: `Expires ${cardExpiry}` });
+    const method = await addPaymentMethod({ type: 'card', label: `Card •••• ${last4}`, meta: `Expires ${cardExpiry}` });
+    if (!method) return;
     setCardNumber(''); setCardExpiry('');
     setShowAdd(false);
   }

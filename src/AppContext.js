@@ -36,6 +36,13 @@ const EMPTY_FILTERS = {
   sort: 'recommended',
 };
 
+const DEFAULT_APP_SETTINGS = {
+  language: 'English',
+  currency: 'ZAR (R)',
+  darkMode: false,
+  biometric: false,
+};
+
 function initialsFor(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '?';
@@ -149,6 +156,7 @@ export function AppProvider({ children }) {
   const [trackingRows, setTrackingRows] = useState([]);
   const [user, setUser] = useState(EMPTY_USER);
   const [notificationSettings, setNotificationSettings] = useState({ push: true, email: true, sms: false, promotions: true });
+  const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [bookingDraft, setBookingDraft] = useState(null);
 
@@ -160,6 +168,7 @@ export function AppProvider({ children }) {
     if (!activeSession?.user?.id) {
       setVehicles([]); setBookings([]); setFavorites([]); setConversations([]); setNotifications([]);
       setPaymentMethods([]); setSavedLocations([]); setPostedJobs([]); setUser(EMPTY_USER);
+      setAppSettings(DEFAULT_APP_SETTINGS);
       return;
     }
     setLoading(true);
@@ -208,7 +217,14 @@ export function AppProvider({ children }) {
       })));
       setSavedLocations((locationResult.data || []).map((row) => ({ ...row, icon: row.label.toLowerCase() === 'home' ? 'home-outline' : 'location-outline' })));
       setPaymentMethods((paymentResult.data || []).map((row) => ({ ...row, isDefault: row.is_default, label: row.label, meta: row.meta })));
-      setNotificationSettings(preferenceResult.data?.settings || { push: true, email: true, sms: false, promotions: true });
+      const persistedSettings = preferenceResult.data?.settings || {};
+      setNotificationSettings({
+        push: persistedSettings.push ?? true,
+        email: persistedSettings.email ?? true,
+        sms: persistedSettings.sms ?? false,
+        promotions: persistedSettings.promotions ?? true,
+      });
+      setAppSettings({ ...DEFAULT_APP_SETTINGS, ...persistedSettings });
       setPostedJobs((jobResult.data || []).map((row) => ({ ...row, budget: String(row.budget || ''), photos: row.photos || [] })));
       setReviews(reviewResult.data || []);
       setAvailabilityRows(availabilityResult.data || []);
@@ -316,10 +332,25 @@ export function AppProvider({ children }) {
 
   const getDriverDashboard = useCallback(() => {
     const providerVehicles = vehicles.filter((vehicle) => vehicle.providerId === session?.user?.id);
-    const activeTrips = bookings.filter((booking) => booking.status === 'active').length;
+    const activeTrips = bookings.filter((booking) => booking.rawStatus === 'active').length;
     const revenue = bookings.filter((booking) => booking.status === 'completed').reduce((sum, booking) => sum + booking.total, 0);
-    return { overview: { activeTrips, onTimeRate: null, avgEta: null, revenue: `R${revenue.toFixed(2)}` }, routeHealth: [], liveAlerts: [], reminders: [{ label: 'Listings', value: String(providerVehicles.length), tone: 'info' }] };
-  }, [bookings, session, vehicles]);
+    const routeHealth = bookings
+      .filter((booking) => ['upcoming', 'active'].includes(booking.status) && providerVehicles.some((vehicle) => vehicle.id === booking.vehicleId))
+      .slice(0, 5)
+      .map((booking) => ({
+        id: booking.id,
+        route: getVehicleById(booking.vehicleId)?.title || 'Vehicle booking',
+        status: booking.rawStatus || booking.status,
+        eta: '—',
+        driver: 'Provider',
+      }));
+    return {
+      overview: { activeTrips, onTimeRate: '—', avgEta: '—', revenue: `R${revenue.toFixed(2)}` },
+      routeHealth,
+      liveAlerts: [],
+      reminders: [{ label: 'Listings', value: String(providerVehicles.length), tone: 'info' }],
+    };
+  }, [bookings, getVehicleById, session, vehicles]);
 
   async function toggleFavorite(id) {
     if (!session?.user?.id) return;
@@ -400,7 +431,14 @@ export function AppProvider({ children }) {
   }
 
   async function updateUser(patch) {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id) return false;
+    if (patch.email && patch.email !== session.user.email) {
+      const authResult = await supabase.auth.updateUser({ email: patch.email });
+      if (authResult.error) {
+        report(authResult.error.message);
+        return false;
+      }
+    }
     const profilePatch = {};
     if (patch.name !== undefined) profilePatch.full_name = patch.name;
     if (patch.phone !== undefined) profilePatch.phone = patch.phone;
@@ -408,17 +446,29 @@ export function AppProvider({ children }) {
     if (patch.isProvider !== undefined) profilePatch.is_provider = patch.isProvider;
     if (Object.keys(profilePatch).length) {
       const result = await supabase.from('profiles').upsert({ id: session.user.id, ...profilePatch });
-      if (result.error) return report(result.error.message);
+      if (result.error) {
+        report(result.error.message);
+        return false;
+      }
     }
     setUser((current) => ({ ...current, ...patch, initials: patch.name ? initialsFor(patch.name) : current.initials }));
+    return true;
   }
 
   async function updateNotificationSettings(patch) {
     const next = { ...notificationSettings, ...patch };
     if (!session?.user?.id) return;
-    const result = await supabase.from('notification_preferences').upsert({ user_id: session.user.id, settings: next });
+    const result = await supabase.from('notification_preferences').upsert({ user_id: session.user.id, settings: { ...appSettings, ...next } });
     if (result.error) return report(result.error.message);
     setNotificationSettings(next);
+  }
+
+  async function updateAppSettings(patch) {
+    const next = { ...appSettings, ...patch };
+    if (!session?.user?.id) return;
+    const result = await supabase.from('notification_preferences').upsert({ user_id: session.user.id, settings: { ...next, ...notificationSettings } });
+    if (result.error) return report(result.error.message);
+    setAppSettings(next);
   }
 
   async function addPaymentMethod(method) {
@@ -426,8 +476,13 @@ export function AppProvider({ children }) {
     const result = await supabase.from('payment_methods').insert({
       user_id: session.user.id, type: method.type || 'card', label: method.label, meta: method.meta, is_default: paymentMethods.length === 0,
     }).select().single();
-    if (result.error) return report(result.error.message);
-    setPaymentMethods((current) => [...current, { ...result.data, isDefault: result.data.is_default }]);
+    if (result.error) {
+      report(result.error.message);
+      return null;
+    }
+    const methodRecord = { ...result.data, isDefault: result.data.is_default };
+    setPaymentMethods((current) => [...current, methodRecord]);
+    return methodRecord;
   }
 
   async function removePaymentMethod(id) {
@@ -513,8 +568,9 @@ export function AppProvider({ children }) {
       return mapVehicle({ ...result.data, vehicle_images: urls.map((storage_path, index) => ({ storage_path, display_order: index })), vehicle_features: (listing.features || []).map((feature) => ({ feature })) });
     } catch (uploadError) {
       report(uploadError.message || 'Listing created, but image upload failed.');
+      await supabase.from('vehicles').delete().eq('id', result.data.id).eq('provider_id', session.user.id);
       await loadData(session);
-      return mapVehicle(result.data);
+      return null;
     }
   }
 
@@ -530,7 +586,7 @@ export function AppProvider({ children }) {
     filters, updateFilters, filteredVehicles, conversations, sendMessage, markConversationRead,
     notifications, markAllNotificationsRead, unreadNotifications: notifications.filter((item) => !item.read_at).length,
     unreadMessages: conversations.reduce((sum, item) => sum + item.unread, 0), user, updateUser,
-    notificationSettings, updateNotificationSettings, paymentMethods, addPaymentMethod, removePaymentMethod,
+    notificationSettings, updateNotificationSettings, appSettings, updateAppSettings, paymentMethods, addPaymentMethod, removePaymentMethod,
     setDefaultPaymentMethod, savedLocations, addSavedLocation, removeSavedLocation, postedJobs, addPostedJob,
     addVehicleListing, updateVehicleStatus, bookingDraft, setBookingDraft, signOut,
   };

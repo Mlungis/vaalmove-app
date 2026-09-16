@@ -23,7 +23,7 @@ export default function AddListingScreen({ navigation }) {
   async function handleSubmit() {
     const next = {};
     if (!title.trim()) next.title = 'Give your listing a title.';
-    if (!price.trim()) next.price = 'Set a daily price.';
+    if (!price.trim() || Number(price) <= 0) next.price = 'Enter a valid daily price.';
     if (!pickupLocation.trim()) next.location = 'Add a pickup location.';
     if (photos.length === 0) next.photos = 'Add at least one photo of the vehicle.';
     setErrors(next);
@@ -53,6 +53,8 @@ export default function AddListingScreen({ navigation }) {
       Alert.alert('Listing added', 'Your new vehicle is now live for renters to find.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
+    } else {
+      Alert.alert('Could not publish', 'We could not save this listing. Check your connection and try again.');
     }
   }
 
