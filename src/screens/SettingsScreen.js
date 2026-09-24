@@ -7,7 +7,7 @@ import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
 
 export default function SettingsScreen({ navigation }) {
-  const { appSettings, updateAppSettings } = useAppContext();
+  const { appSettings, updateAppSettings, deleteAccount } = useAppContext();
   const { language, currency, darkMode, biometric } = appSettings;
 
   return (
@@ -48,8 +48,16 @@ export default function SettingsScreen({ navigation }) {
             danger
             noBorder
             onPress={() =>
-              Alert.alert('Delete account', 'This will permanently delete your account and data. This is disabled in the preview build.', [
-                { text: 'OK' },
+              Alert.alert('Delete account', 'This permanently deletes your account and data. This cannot be undone.', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete permanently',
+                  style: 'destructive',
+                  onPress: async () => {
+                    const deleted = await deleteAccount();
+                    if (!deleted) Alert.alert('Could not delete account', 'Please try again or contact support.');
+                  },
+                },
               ])
             }
           />

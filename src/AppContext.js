@@ -436,8 +436,8 @@ export function AppProvider({ children }) {
       dropoff_location: booking.dropoffLocation || null,
       subtotal: booking.subtotal ?? booking.total,
       total: booking.total,
-      status: 'pending',
-      payment_status: 'pending',
+      status: booking.paymentStatus === 'paid' ? 'confirmed' : 'pending',
+      payment_status: booking.paymentStatus || 'pending',
     }).select().single();
     if (result.error) { report(result.error.message); return null; }
     const record = mapBooking(result.data);
@@ -486,8 +486,9 @@ export function AppProvider({ children }) {
     if (patch.phone !== undefined) profilePatch.phone = patch.phone;
     if (patch.providerName !== undefined) profilePatch.provider_name = patch.providerName;
     if (patch.isProvider !== undefined) profilePatch.is_provider = patch.isProvider;
+    if (patch.avatarUrl !== undefined) profilePatch.avatar_url = patch.avatarUrl;
     if (Object.keys(profilePatch).length) {
-      const result = await supabase.from('profiles').upsert({ id: session.user.id, ...profilePatch });
+      const result = await supabase.from('profiles').upsert({ id: session.user.id, ...profilePatch }, { onConflict: 'id' });
       if (result.error) {
         report(result.error.message);
         return false;
@@ -495,6 +496,25 @@ export function AppProvider({ children }) {
     }
     setUser((current) => ({ ...current, ...patch, initials: patch.name ? initialsFor(patch.name) : current.initials }));
     return true;
+  }
+
+  async function uploadAvatar(uri) {
+    if (!session?.user?.id || !uri) return null;
+    try {
+      const response = await fetch(uri);
+      if (!response.ok) throw new Error('The selected profile image could not be read.');
+      const blob = await response.blob();
+      const path = `${session.user.id}/avatar.jpg`;
+      const upload = await supabase.storage.from('avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+      if (upload.error) throw upload.error;
+      const avatarUrl = `${supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
+      const saved = await updateUser({ avatarUrl });
+      if (!saved) return null;
+      return avatarUrl;
+    } catch (uploadError) {
+      report(listingErrorMessage(uploadError));
+      return null;
+    }
   }
 
   async function updateNotificationSettings(patch) {
@@ -599,6 +619,17 @@ export function AppProvider({ children }) {
 
   async function addVehicleListing(listing) {
     if (!session?.user?.id) throw new Error('Your session has expired. Please sign in again before publishing a listing.');
+    const profile = await supabase.from('profiles').upsert({
+      id: session.user.id,
+      full_name: user.name || session.user.user_metadata?.full_name || '',
+      provider_name: listing.provider || user.providerName || null,
+      is_provider: true,
+    }, { onConflict: 'id' });
+    if (profile.error) {
+      const message = listingErrorMessage(profile.error);
+      report(message);
+      throw new Error(message);
+    }
     const result = await supabase.from('vehicles').insert({
       provider_id: session.user.id, title: listing.title, category: listing.category, price_daily: listing.priceDaily,
       year: listing.year, fuel: listing.fuel, transmission: listing.transmission, description: listing.description || null,
@@ -607,7 +638,7 @@ export function AppProvider({ children }) {
       weekend_surcharge_percent: listing.pricingRules?.weekendSurcharge || 0,
       weekly_discount_percent: listing.pricingRules?.weeklyDiscount || 0,
       cancellation_policy: listing.pricingRules?.cancellation || null,
-    }).select('*, profiles:provider_id(id, full_name, provider_name)').single();
+    }).select('*').single();
     if (result.error) {
       const message = listingErrorMessage(result.error);
       report(message);
@@ -627,7 +658,12 @@ export function AppProvider({ children }) {
         if (features.error) throw features.error;
       }
       await loadData(session);
-      return mapVehicle({ ...result.data, vehicle_images: urls.map((storage_path, index) => ({ storage_path, display_order: index })), vehicle_features: (listing.features || []).map((feature) => ({ feature })) });
+      return mapVehicle({
+        ...result.data,
+        profiles: { full_name: listing.provider || user.providerName || user.name },
+        vehicle_images: urls.map((storage_path, index) => ({ storage_path, display_order: index })),
+        vehicle_features: (listing.features || []).map((feature) => ({ feature })),
+      });
     } catch (uploadError) {
       const message = listingErrorMessage(uploadError);
       report(message);
@@ -642,16 +678,26 @@ export function AppProvider({ children }) {
     if (result.error) report(result.error.message);
   }
 
+  async function deleteAccount() {
+    const { error } = await supabase.functions.invoke('delete-account', { body: {} });
+    if (error) {
+      report(error.message || 'Unable to delete account.');
+      return false;
+    }
+    await supabase.auth.signOut();
+    return true;
+  }
+
   const value = {
     session, authLoading, loading, error, refresh: () => loadData(session), clearError: () => setError(null),
     vehicles, getVehicleById, getVehicleAvailability, getVehicleReviews, getVehicleTracking, getDriverDashboard,
     bookings, addBooking, cancelBooking, favorites, favoriteVehicles, toggleFavorite, isFavorite,
     filters, updateFilters, filteredVehicles, conversations, sendMessage, markConversationRead,
     notifications, markAllNotificationsRead, unreadNotifications: notifications.filter((item) => !item.read_at).length,
-    unreadMessages: conversations.reduce((sum, item) => sum + item.unread, 0), user, updateUser,
+    unreadMessages: conversations.reduce((sum, item) => sum + item.unread, 0), user, updateUser, uploadAvatar,
     notificationSettings, updateNotificationSettings, appSettings, updateAppSettings, paymentMethods, addPaymentMethod, removePaymentMethod,
     setDefaultPaymentMethod, savedLocations, addSavedLocation, removeSavedLocation, postedJobs, addPostedJob,
-    addVehicleListing, updateVehicleStatus, bookingDraft, setBookingDraft, signOut,
+    addVehicleListing, updateVehicleStatus, bookingDraft, setBookingDraft, signOut, deleteAccount,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

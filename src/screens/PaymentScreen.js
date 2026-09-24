@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import { PrimaryButton } from '../components/Buttons';
 import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
+import { payForBooking } from '../lib/payments';
 
 const METHOD_ICON = { card: 'card-outline', wallet: 'wallet-outline', eft: 'business-outline' };
 
 export default function PaymentScreen({ navigation, route }) {
-  const { getVehicleById, addBooking, bookingDraft, paymentMethods, addPaymentMethod } = useAppContext();
+  const { getVehicleById, addBooking, bookingDraft, paymentMethods, addPaymentMethod, user } = useAppContext();
   const id = route?.params?.id;
   const vehicle = getVehicleById(id) || {};
   const draft = bookingDraft || {};
@@ -59,19 +60,24 @@ export default function PaymentScreen({ navigation, route }) {
 
   async function handlePay() {
     setPaying(true);
-    const booking = await addBooking({
-      vehicleId: id,
-      pickup: withTime(draft.startDate, draft.pickupTime),
-      dropoff: withTime(draft.endDate || draft.startDate, draft.returnTime || '17:00'),
-      total,
-      subtotal: draft.subtotal,
-      location: vehicle.location,
-    });
-    setPaying(false);
-    if (booking) {
-      navigation.navigate('BookingConfirmed', { id, bookingId: booking.id });
-    } else {
-      Alert.alert('Could not confirm booking', 'We could not save this booking. Check your connection and try again.');
+    try {
+      const payment = await payForBooking({ amount: total, email: user.email, bookingId: id });
+      if (!payment && Platform.OS === 'web') return;
+      const booking = await addBooking({
+        vehicleId: id,
+        pickup: withTime(draft.startDate, draft.pickupTime),
+        dropoff: withTime(draft.endDate || draft.startDate, draft.returnTime || '17:00'),
+        total,
+        subtotal: draft.subtotal,
+        location: vehicle.location,
+        paymentStatus: 'paid',
+      });
+      if (booking) navigation.navigate('BookingConfirmed', { id, bookingId: booking.id });
+      else Alert.alert('Could not save booking', 'Your payment was verified, but the booking could not be saved. Contact support with your Paystack reference.');
+    } catch (error) {
+      Alert.alert('Payment not completed', error?.message || 'We could not complete this payment.');
+    } finally {
+      setPaying(false);
     }
   }
 

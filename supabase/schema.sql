@@ -341,7 +341,7 @@ create policy "providers manage own availability"
   using (exists (select 1 from public.vehicles v where v.id = vehicle_id and v.provider_id = auth.uid()))
   with check (exists (select 1 from public.vehicles v where v.id = vehicle_id and v.provider_id = auth.uid()));
 
-grant select on table public.profiles to authenticated;
+grant select, insert, update on table public.profiles to authenticated;
 grant select, insert, update, delete on table public.vehicles to authenticated;
 grant select, insert, update, delete on table public.vehicle_images to authenticated;
 grant select, insert, update, delete on table public.vehicle_features to authenticated;
@@ -475,6 +475,25 @@ $$;
 insert into storage.buckets (id, name, public)
 values ('vehicle-images', 'vehicle-images', true)
 on conflict (id) do update set public = excluded.public;
+
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do update set public = excluded.public;
+
+create policy "avatars are publicly readable"
+  on storage.objects for select
+  using (bucket_id = 'avatars');
+
+create policy "users manage their avatar"
+  on storage.objects for all to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 create policy "vehicle images are publicly readable"
   on storage.objects for select

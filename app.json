@@ -39,6 +39,7 @@
           "cameraPermission": "LexRidesZA uses your camera to take pictures for vehicle listings and job posts."
         }
       ],
+      "expo-calendar",
       "expo-web-browser"
     ]
   }

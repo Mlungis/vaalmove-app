@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Share, Alert, Platform } from 'react-native';
+import * as Calendar from 'expo-calendar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts, radius, shadow } from '../theme';
@@ -17,7 +18,36 @@ export default function BookingConfirmedScreen({ navigation, route }) {
     Share.share({ message: `Booked ${vehicle.title} on LexRidesZA — booking ${latest.code}.` }).catch(() => {});
   }
 
-  function handleCalendar() {
+  async function handleCalendar() {
+    if (Platform.OS === 'web') {
+      Alert.alert('Calendar unavailable', 'Calendar reminders can be added from the mobile app.');
+      return;
+    }
+    if (!latest.pickup) {
+      Alert.alert('Calendar unavailable', 'This booking does not have a pickup time yet.');
+      return;
+    }
+    const permission = await Calendar.requestCalendarPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow calendar access to add your pickup reminder.');
+      return;
+    }
+    const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+    const calendar = calendars.find((item) => item.allowsModifications) || calendars[0];
+    if (!calendar) {
+      Alert.alert('Calendar unavailable', 'No writable calendar was found on this device.');
+      return;
+    }
+    const startDate = new Date(latest.pickup);
+    const endDate = latest.dropoff ? new Date(latest.dropoff) : new Date(startDate.getTime() + 60 * 60 * 1000);
+    await Calendar.createEventAsync(calendar.id, {
+      title: `LexRidesZA pickup — ${vehicle.title || 'vehicle'}`,
+      startDate,
+      endDate,
+      location: vehicle.location || latest.location || undefined,
+      notes: `Booking ${latest.code || bookingId || ''}`,
+      alarms: [{ relativeOffset: -60 }],
+    });
     Alert.alert('Added to calendar', 'A reminder for your pickup has been added to your calendar.');
   }
 

@@ -117,7 +117,7 @@ export default function SignupScreen({ navigation }) {
             <View style={styles.cardInner}>
               <TextField
                 label="Full name"
-                icon="account-outline"
+                icon="person-outline"
                 placeholder="Lesedi Moraba"
                 value={fullName}
                 onChangeText={setFullName}

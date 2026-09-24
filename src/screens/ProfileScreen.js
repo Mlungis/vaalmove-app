@@ -30,7 +30,7 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.title}>Profile</Text>
 
         <TouchableOpacity style={styles.profileCard} onPress={() => navigation.navigate('PersonalInfo')} activeOpacity={0.85}>
-          <Avatar initials={user.initials} size={56} color={colors.skyMid} />
+          <Avatar initials={user.initials} size={56} color={colors.skyMid} imageUrl={user.avatarUrl} />
           <View style={{ marginLeft: 12, flex: 1 }}>
             <Text style={styles.name}>{user.name}</Text>
             <Text style={styles.email}>{user.email}</Text>
@@ -55,7 +55,7 @@ export default function ProfileScreen({ navigation }) {
 
         <Text style={styles.sectionLabel}>Account</Text>
         <View style={styles.menuCard}>
-          <ListRow icon="account-outline" label="Personal Information" onPress={() => navigation.navigate('PersonalInfo')} />
+          <ListRow icon="person-outline" label="Personal Information" onPress={() => navigation.navigate('PersonalInfo')} />
           <ListRow icon="card-outline" label="Payment Methods" onPress={() => navigation.navigate('PaymentMethods')} />
           <ListRow icon="location-outline" label="Saved Locations" onPress={() => navigation.navigate('SavedLocations')} />
           <ListRow icon="notifications-outline" label="Notification Settings" onPress={() => navigation.navigate('NotificationSettings')} />

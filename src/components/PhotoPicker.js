@@ -8,6 +8,7 @@ const MAX_PHOTOS = 6;
 
 export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, error }) {
   async function pickFromLibrary() {
+    try {
     if (photos.length >= max) {
       Alert.alert('Limit reached', `You can add up to ${max} photos.`);
       return;
@@ -27,9 +28,13 @@ export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, e
       const uris = result.assets.map((a) => a.uri);
       onChange([...photos, ...uris].slice(0, max));
     }
+    } catch (error) {
+      Alert.alert('Could not add photo', error?.message || 'The photo picker could not be opened.');
+    }
   }
 
   async function takePhoto() {
+    try {
     if (photos.length >= max) {
       Alert.alert('Limit reached', `You can add up to ${max} photos.`);
       return;
@@ -39,9 +44,15 @@ export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, e
       Alert.alert('Permission needed', 'Allow camera access to take a photo.');
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaType.Images,
+      quality: 0.7,
+    });
     if (!result.canceled) {
       onChange([...photos, result.assets[0].uri].slice(0, max));
+    }
+    } catch (error) {
+      Alert.alert('Could not take photo', error?.message || 'The camera could not be opened.');
     }
   }
 

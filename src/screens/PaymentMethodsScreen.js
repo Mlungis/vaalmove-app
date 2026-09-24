@@ -16,8 +16,16 @@ export default function PaymentMethodsScreen({ navigation }) {
   const [cardExpiry, setCardExpiry] = useState('');
 
   async function handleAdd() {
-    if (!cardNumber.trim() || !cardExpiry.trim()) return;
-    const last4 = cardNumber.slice(-4).padStart(4, '•');
+    const normalizedNumber = cardNumber.replace(/\s/g, '');
+    if (!/^\d{13,16}$/.test(normalizedNumber)) {
+      Alert.alert('Invalid card number', 'Enter a valid card number.');
+      return;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(cardExpiry.trim())) {
+      Alert.alert('Invalid expiry date', 'Use the MM/YY format.');
+      return;
+    }
+    const last4 = normalizedNumber.slice(-4).padStart(4, '•');
     const method = await addPaymentMethod({ type: 'card', label: `Card •••• ${last4}`, meta: `Expires ${cardExpiry}` });
     if (!method) return;
     setCardNumber(''); setCardExpiry('');

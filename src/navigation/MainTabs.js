@@ -17,7 +17,7 @@ const ICONS = {
   Bookings: 'bookmark-outline',
   Track: 'navigate-outline',
   Messages: 'chatbubble-outline',
-  Profile: 'account-outline',
+  Profile: 'person-outline',
 };
 
 function TabIcon({ name, color, size, badge }) {

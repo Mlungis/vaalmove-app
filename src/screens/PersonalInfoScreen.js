@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import Header from '../components/Header';
 import Avatar from '../components/Avatar';
 import { PrimaryButton } from '../components/Buttons';
@@ -14,10 +15,32 @@ function initialsFor(name) {
 }
 
 export default function PersonalInfoScreen({ navigation }) {
-  const { user, updateUser } = useAppContext();
+  const { user, updateUser, uploadAvatar } = useAppContext();
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone);
+  const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
+
+  async function handleChoosePhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow photo library access to update your profile photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaType.Images,
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    const savedUrl = await uploadAvatar(result.assets[0].uri);
+    if (!savedUrl) {
+      Alert.alert('Could not update photo', 'Check the avatars bucket and policies in Supabase, then try again.');
+      return;
+    }
+    setAvatarUrl(savedUrl);
+  }
 
   async function handleSave() {
     if (!name.trim() || !email.trim()) {
@@ -38,8 +61,8 @@ export default function PersonalInfoScreen({ navigation }) {
     <View style={styles.container}>
       <Header title="Personal Information" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 32, alignItems: 'center' }}>
-        <TouchableOpacity style={styles.avatarWrap} onPress={() => Alert.alert('Change photo', 'Photo upload is not available in this preview build.')}>
-          <Avatar initials={initialsFor(name)} size={84} color={colors.skyMid} />
+        <TouchableOpacity style={styles.avatarWrap} onPress={handleChoosePhoto}>
+          <Avatar initials={initialsFor(name)} size={84} color={colors.skyMid} imageUrl={avatarUrl} />
           <View style={styles.editBadge}>
             <Text style={styles.editBadgeText}>Edit</Text>
           </View>
