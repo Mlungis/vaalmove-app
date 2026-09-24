@@ -24,8 +24,8 @@ export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, e
       allowsMultipleSelection: true,
       selectionLimit: max - photos.length,
     });
-    if (!result.canceled) {
-      const uris = result.assets.map((a) => a.uri);
+    if (!result.canceled && result.assets?.length) {
+      const uris = result.assets.map((a) => a.uri).filter(Boolean);
       onChange([...photos, ...uris].slice(0, max));
     }
     } catch (error) {
@@ -48,7 +48,7 @@ export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, e
       mediaTypes: ImagePicker.MediaType.Images,
       quality: 0.7,
     });
-    if (!result.canceled) {
+    if (!result.canceled && result.assets?.[0]?.uri) {
       onChange([...photos, result.assets[0].uri].slice(0, max));
     }
     } catch (error) {

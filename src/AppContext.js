@@ -177,6 +177,9 @@ export function AppProvider({ children }) {
     if (normalized.includes('not authenticated') || normalized.includes('jwt')) {
       return 'Your session has expired. Please sign in again before publishing a listing.';
     }
+    if (message) {
+      return `We could not publish this listing: ${message}`;
+    }
     return 'We could not publish this listing. Check your Supabase setup and try again.';
   }
 
@@ -610,9 +613,9 @@ export function AppProvider({ children }) {
     if (!uri || uri.startsWith('http')) return uri;
     const response = await fetch(uri);
     if (!response.ok) throw new Error('The selected vehicle image could not be read.');
-    const blob = await response.blob();
+    const fileData = await response.arrayBuffer();
     const path = `${providerId}/${vehicleId}/${Date.now()}-${index}.jpg`;
-    const upload = await supabase.storage.from('vehicle-images').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    const upload = await supabase.storage.from('vehicle-images').upload(path, fileData, { contentType: 'image/jpeg', upsert: false });
     if (upload.error) throw upload.error;
     return supabase.storage.from('vehicle-images').getPublicUrl(path).data.publicUrl;
   }
