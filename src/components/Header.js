@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 16,
   },
   iconBtn: {
     width: 38,
@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   titleWrap: { flex: 1, alignItems: 'center' },
-  title: { fontFamily: fonts.display, fontSize: 17, color: colors.ink },
+  title: { fontFamily: fonts.display, fontSize: 18, color: colors.ink, letterSpacing: 0.2 },
   subtitle: { fontFamily: fonts.body, fontSize: 11.5, color: colors.muted, marginTop: 2 },
   right: { minWidth: 38, alignItems: 'flex-end' },
 });

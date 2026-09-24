@@ -1,41 +1,41 @@
-// LexRidesZA — design tokens (mirrors the web prototype's design system)
+// LexRidesZA — private mobility design system
 
 export const colors = {
-  // Sky gradient — onboarding / login / signup
-  skyTop: '#7FD1F5',
-  skyMid: '#3E8FE8',
-  skyBottom: '#14459E',
+  // Champagne and midnight palette — onboarding / login / primary actions
+  skyTop: '#E8D5B2',
+  skyMid: '#B99254',
+  skyBottom: '#17263D',
 
   // App surface
-  surface: '#F5F8FC',
-  surfaceAlt: '#FFFFFF',
-  ink: '#0E2340',
-  inkSoft: '#4A5C78',
-  muted: '#8593A8',
-  hairline: 'rgba(14,35,64,0.08)',
+  surface: '#F4F0E8',
+  surfaceAlt: '#FFFDF8',
+  ink: '#142238',
+  inkSoft: '#536174',
+  muted: '#8C8D8A',
+  hairline: 'rgba(20,34,56,0.11)',
   white: '#FFFFFF',
-  danger: '#E65252',
-  dangerBg: '#FDECEC',
-  success: '#2FA85B',
-  successBg: '#E1F5E6',
-  warning: '#E08A2B',
-  warningBg: '#FCEBD3',
-  overlay: 'rgba(10,25,50,0.45)',
+  danger: '#B85050',
+  dangerBg: '#F7E8E4',
+  success: '#477C62',
+  successBg: '#E5EEE7',
+  warning: '#B47A37',
+  warningBg: '#F4E9D4',
+  overlay: 'rgba(10,20,35,0.55)',
 
   // Dashboard action cards
-  blueBg: '#DCEEFB', blueIcon: '#2F7FE0',
-  greenBg: '#E1F5E6', greenIcon: '#2FA85B',
-  amberBg: '#FCEBD3', amberIcon: '#E08A2B',
-  pinkBg: '#F4E1EF', pinkIcon: '#A24FC7',
-  cyanBg: '#DFF6F6', cyanIcon: '#1AA3A0',
-  goldBg: '#FCF3D6', goldIcon: '#D6A017',
+  blueBg: '#E8E3D8', blueIcon: '#9B773E',
+  greenBg: '#E5EEE7', greenIcon: '#477C62',
+  amberBg: '#F4E9D4', amberIcon: '#B47A37',
+  pinkBg: '#EEE4E3', pinkIcon: '#956866',
+  cyanBg: '#E2ECEA', cyanIcon: '#477C73',
+  goldBg: '#F2E4C6', goldIcon: '#A8792F',
 };
 
 export const radius = {
-  xl: 28,
-  lg: 22,
-  md: 16,
-  sm: 12,
+  xl: 32,
+  lg: 24,
+  md: 18,
+  sm: 13,
   pill: 999,
 };
 
@@ -58,24 +58,24 @@ export const spacing = {
 
 export const shadow = {
   card: {
-    shadowColor: '#0E2340',
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
+    shadowColor: '#17263D',
+    shadowOpacity: 0.1,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
   },
   soft: {
-    shadowColor: '#0E2340',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    shadowColor: '#17263D',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   floating: {
-    shadowColor: '#061A3C',
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 6,
+    shadowColor: '#17263D',
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
   },
 };

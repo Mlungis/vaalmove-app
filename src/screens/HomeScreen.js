@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, Image, Pressable } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, View, Text, TextInput, StyleSheet, ScrollView, Image, Pressable, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,14 +11,23 @@ const quickServices = [
   { label: 'Rent a Vehicle', icon: 'car-outline', bg: colors.blueBg, iconColor: colors.blueIcon, category: null },
   { label: 'Staff Transport', icon: 'bus-side', bg: colors.greenBg, iconColor: colors.greenIcon, category: 'minibuses' },
   { label: 'School Ride', icon: 'bus-school', bg: colors.amberBg, iconColor: colors.amberIcon, category: 'minibuses' },
-  { label: 'Driver Hire', icon: 'person-outline', bg: colors.pinkBg, iconColor: colors.pinkIcon, category: null },
+  { label: 'Driver Hire', icon: 'account-outline', bg: colors.pinkBg, iconColor: colors.pinkIcon, category: null },
 ];
 
 export default function HomeScreen({ navigation }) {
   const { vehicles, bookings, unreadNotifications, user } = useAppContext();
   const [query, setQuery] = React.useState('');
+  const entrance = useRef(new Animated.Value(0)).current;
   const firstName = (user?.name || 'there').split(' ')[0];
   const trackableBooking = bookings.find((booking) => ['upcoming', 'active'].includes(booking.status));
+
+  useEffect(() => {
+    Animated.timing(entrance, {
+      toValue: 1,
+      duration: 520,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [entrance]);
 
   function handleSearchSubmit() {
     navigation.navigate('SearchFilter', { query });
@@ -27,9 +36,8 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={["#DDEEFC", "rgba(221,238,252,0)"]}
-        style={styles.wash}
-        pointerEvents="none"
+        colors={["#E7D7B8", "rgba(231,215,184,0)"]}
+        style={[styles.wash, styles.nonInteractive]}
       />
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.topbar}>
@@ -53,25 +61,11 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        <View style={styles.greeting}>
-          <Text style={styles.greetingTitle}>Hello, {firstName} 👋</Text>
-          <Text style={styles.greetingSubtitle}>Where are we taking you today?</Text>
-        </View>
-
-        <Pressable style={styles.search} onPress={() => navigation.navigate('SearchFilter', { query })}>
-          <Ionicons name="search" size={17} color={colors.muted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search for vehicles, services or routes"
-            placeholderTextColor={colors.muted}
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={handleSearchSubmit}
-            returnKeyType="search"
-          />
-        </Pressable>
-
-        <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
+        <Animated.ScrollView
+          contentContainerStyle={styles.grid}
+          showsVerticalScrollIndicator={false}
+          style={{ opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }}
+        >
           <Pressable style={styles.heroCard} onPress={() => navigation.navigate('SearchResults')}>
             <Image
               source={{
@@ -82,19 +76,31 @@ export default function HomeScreen({ navigation }) {
             />
             <View style={styles.heroShade} />
             <View style={styles.heroContent}>
-              <Text style={styles.heroTag}>Premium pickup</Text>
-              <Text style={styles.heroTitle}>Drive in comfort across town</Text>
-              <Text style={styles.heroMeta}>{vehicles.length ? 'Available near you' : 'Listings from local providers appear here'}</Text>
+              <Text style={styles.heroTag}>PRIVATE MOBILITY, CURATED</Text>
+              <Text style={styles.heroTitle}>Good to see you, {firstName}.</Text>
+              <Text style={styles.heroMeta}>Your next journey starts with a better vehicle.</Text>
+            </View>
+            <View style={styles.heroSearch}>
+              <Ionicons name="search" size={17} color={colors.muted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search vehicles, services or routes"
+                placeholderTextColor={colors.muted}
+                value={query}
+                onChangeText={setQuery}
+                onSubmitEditing={handleSearchSubmit}
+                returnKeyType="search"
+              />
             </View>
           </Pressable>
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Popular services</Text>
+            <Text style={styles.sectionTitle}>Your mobility desk</Text>
             <Pressable onPress={() => navigation.navigate('Categories')}><Text style={styles.sectionLink}>See all</Text></Pressable>
           </View>
 
-          <View style={styles.row}>
-            {quickServices.slice(0, 2).map((item) => (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.serviceRail}>
+            {quickServices.map((item) => (
               <DashboardCard
                 key={item.label}
                 Icon={MaterialCommunityIcons}
@@ -102,6 +108,7 @@ export default function HomeScreen({ navigation }) {
                 label={item.label}
                 bg={item.bg}
                 iconColor={item.iconColor}
+                style={styles.serviceCard}
                 onPress={() =>
                   item.label === 'Post a Job'
                     ? navigation.navigate('PostJob')
@@ -109,25 +116,7 @@ export default function HomeScreen({ navigation }) {
                 }
               />
             ))}
-          </View>
-
-          <View style={styles.row}>
-            {quickServices.slice(2).map((item) => (
-              <DashboardCard
-                key={item.label}
-                Icon={MaterialCommunityIcons}
-                iconName={item.icon}
-                label={item.label}
-                bg={item.bg}
-                iconColor={item.iconColor}
-                onPress={() =>
-                  item.label === 'Driver Hire'
-                    ? navigation.navigate('PostJob')
-                    : navigation.navigate('SearchResults', { category: item.category })
-                }
-              />
-            ))}
-          </View>
+          </ScrollView>
 
           <Pressable
             style={styles.trackBanner}
@@ -136,7 +125,8 @@ export default function HomeScreen({ navigation }) {
               : navigation.navigate('Bookings')}
           >
             <View style={{ flex: 1 }}>
-              <Text style={styles.trackBannerTitle}>Live dispatch</Text>
+              <Text style={styles.trackEyebrow}>LIVE DISPATCH</Text>
+              <Text style={styles.trackBannerTitle}>{trackableBooking ? 'Your journey is in motion' : 'Your movement, in one place'}</Text>
               <Text style={styles.trackBannerSubtitle}>
                 {trackableBooking ? 'Track your driver and vehicle location in real time.' : 'Your live tracking updates will appear here after booking.'}
               </Text>
@@ -146,8 +136,11 @@ export default function HomeScreen({ navigation }) {
             </View>
           </Pressable>
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured rides</Text>
+          <View style={[styles.sectionHeader, styles.inventoryHeader]}>
+            <View>
+              <Text style={styles.trackEyebrow}>THE COLLECTION</Text>
+              <Text style={styles.sectionTitle}>Featured rides</Text>
+            </View>
             <Pressable onPress={() => navigation.navigate('SearchResults')}>
               <Text style={styles.sectionLink}>Trending</Text>
             </Pressable>
@@ -176,7 +169,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.postJobBtnText}>Post a Job</Text>
             </Pressable>
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -184,8 +177,12 @@ export default function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface },
+  nonInteractive: { pointerEvents: 'none' },
   wash: { position: 'absolute', top: 0, left: 0, right: 0, height: 210 },
   topbar: {
+    maxWidth: 1180,
+    width: '100%',
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -197,17 +194,17 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: colors.skyMid,
+    backgroundColor: colors.skyBottom,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandName: { fontFamily: fonts.display, fontSize: 17, color: colors.ink },
-  brandLex: { color: '#8EF7FF' },
+  brandName: { fontFamily: fonts.display, fontSize: 17, color: colors.ink, letterSpacing: 0.4 },
+  brandLex: { color: colors.skyMid },
   iconBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
     borderColor: colors.hairline,
     alignItems: 'center',
@@ -224,8 +221,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fff',
   },
-  greeting: { paddingHorizontal: 22, paddingTop: 18 },
-  greetingTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.ink },
+  greeting: { paddingHorizontal: 22, paddingTop: 24 },
+  greetingEyebrow: { fontFamily: fonts.bodyBold, fontSize: 10, color: colors.skyMid, letterSpacing: 1.6, marginBottom: 6 },
+  greetingTitle: { fontFamily: fonts.display, fontSize: 24, color: colors.ink },
   greetingSubtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: 4 },
   search: {
     flexDirection: 'row',
@@ -236,20 +234,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 16,
     paddingVertical: 13,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surfaceAlt,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.hairline,
   },
   searchInput: { flex: 1, fontFamily: fonts.body, fontSize: 14.5, color: colors.ink },
-  grid: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 24 },
+  grid: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 24, width: '100%', maxWidth: 1180, alignSelf: 'center' },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  serviceRail: { paddingRight: 8, gap: 12 },
+  serviceCard: { width: 152, minHeight: 128, marginBottom: 0 },
   heroCard: {
     height: 200,
     borderRadius: 26,
     overflow: 'hidden',
     marginBottom: 18,
-    backgroundColor: '#dfeaf8',
+    backgroundColor: colors.skyBottom,
   },
   heroImage: {
     width: '100%',
@@ -264,7 +264,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 18,
     right: 18,
+    bottom: 86,
+  },
+  heroSearch: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
     bottom: 18,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+    paddingHorizontal: 14,
   },
   heroTag: {
     alignSelf: 'flex-start',
@@ -290,6 +303,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.84)',
   },
+  trackEyebrow: { fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 1.6, color: colors.skyMid, marginBottom: 4 },
+  inventoryHeader: { marginTop: 24 },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -305,7 +320,7 @@ const styles = StyleSheet.create({
   sectionLink: {
     fontFamily: fonts.bodySemi,
     fontSize: 12,
-    color: colors.skyBottom,
+    color: colors.skyMid,
   },
   dealStrip: {
     marginBottom: 8,
@@ -314,7 +329,7 @@ const styles = StyleSheet.create({
   trackBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surfaceAlt,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.hairline,

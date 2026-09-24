@@ -18,7 +18,7 @@ export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, e
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       quality: 0.7,
       allowsMultipleSelection: true,
       selectionLimit: max - photos.length,

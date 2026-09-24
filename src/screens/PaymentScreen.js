@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import { PrimaryButton } from '../components/Buttons';
@@ -36,8 +36,20 @@ export default function PaymentScreen({ navigation, route }) {
   }
 
   async function handleAddCard() {
-    if (!cardNumber.trim() || !cardName.trim() || !cardExpiry.trim()) return;
-    const last4 = cardNumber.slice(-4).padStart(4, '•');
+    const normalizedNumber = cardNumber.replace(/\s/g, '');
+    if (!/^\d{13,16}$/.test(normalizedNumber)) {
+      Alert.alert('Invalid card number', 'Enter a valid card number.');
+      return;
+    }
+    if (!cardName.trim()) {
+      Alert.alert('Missing cardholder name', 'Enter the name shown on the card.');
+      return;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(cardExpiry.trim())) {
+      Alert.alert('Invalid expiry date', 'Use the MM/YY format.');
+      return;
+    }
+    const last4 = normalizedNumber.slice(-4).padStart(4, '•');
     const method = await addPaymentMethod({ type: 'card', label: `Card •••• ${last4}`, meta: `Expires ${cardExpiry}` });
     if (!method) return;
     setSelected(method.id);
@@ -58,6 +70,8 @@ export default function PaymentScreen({ navigation, route }) {
     setPaying(false);
     if (booking) {
       navigation.navigate('BookingConfirmed', { id, bookingId: booking.id });
+    } else {
+      Alert.alert('Could not confirm booking', 'We could not save this booking. Check your connection and try again.');
     }
   }
 

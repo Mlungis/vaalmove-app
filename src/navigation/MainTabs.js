@@ -17,7 +17,7 @@ const ICONS = {
   Bookings: 'bookmark-outline',
   Track: 'navigate-outline',
   Messages: 'chatbubble-outline',
-  Profile: 'person-outline',
+  Profile: 'account-outline',
 };
 
 function TabIcon({ name, color, size, badge }) {
@@ -40,15 +40,15 @@ export default function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.skyBottom,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarActiveTintColor: '#B99254',
+        tabBarInactiveTintColor: '#9A9A96',
         tabBarLabelStyle: { fontFamily: fonts.bodySemi, fontSize: 11 },
         tabBarStyle: {
-          backgroundColor: 'rgba(255,255,255,0.97)',
+          backgroundColor: '#17263D',
           borderTopColor: colors.hairline,
-          height: 62,
+          height: 72,
           paddingTop: 6,
-          paddingBottom: 8,
+          paddingBottom: 12,
         },
         tabBarIcon: ({ color, size }) => (
           <TabIcon

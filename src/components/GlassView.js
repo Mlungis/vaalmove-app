@@ -7,13 +7,14 @@ export default function GlassView({ children, style, soft = false, intensity = 4
     <View style={[styles.wrap, style]}>
       <BlurView intensity={intensity} tint="light" style={StyleSheet.absoluteFill} />
       <View style={[styles.tint, soft && styles.tintSoft]} />
-      <View style={styles.border} pointerEvents="none" />
+      <View style={[styles.border, styles.nonInteractive]} />
       <View style={styles.content}>{children}</View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  nonInteractive: { pointerEvents: 'none' },
   wrap: {
     overflow: 'hidden',
     borderRadius: 24,

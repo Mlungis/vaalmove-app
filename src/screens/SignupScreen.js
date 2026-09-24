@@ -17,6 +17,7 @@ import { PrimaryButton } from '../components/Buttons';
 import { colors, fonts, radius } from '../theme';
 import { useAppContext } from '../AppContext';
 import { supabase } from '../lib/supabase';
+import { startOAuth } from '../lib/oauth';
 
 function initialsFor(name) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -89,8 +90,15 @@ export default function SignupScreen({ navigation }) {
     }
   };
 
-  const handleSocialSignup = (provider) => {
-    Alert.alert('Continue with ' + provider, 'Social sign-up is ready to connect to your auth provider.');
+  const handleSocialSignup = async (provider) => {
+    setLoading(true);
+    try {
+      await startOAuth(provider);
+    } catch (error) {
+      setErrors({ form: error.message || 'Could not start social sign-up.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -109,7 +117,7 @@ export default function SignupScreen({ navigation }) {
             <View style={styles.cardInner}>
               <TextField
                 label="Full name"
-                icon="person-outline"
+                icon="account-outline"
                 placeholder="Lesedi Moraba"
                 value={fullName}
                 onChangeText={setFullName}
@@ -179,6 +187,7 @@ export default function SignupScreen({ navigation }) {
                   <TouchableOpacity
                     style={[styles.socialButton, styles.googleButton]}
                     onPress={() => handleSocialSignup('Google')}
+                    disabled={loading}
                   >
                     <Ionicons name="logo-google" size={18} color="#FFFFFF" />
                     <Text style={styles.socialButtonText}>Google</Text>
@@ -187,6 +196,7 @@ export default function SignupScreen({ navigation }) {
                   <TouchableOpacity
                     style={[styles.socialButton, styles.appleButton]}
                     onPress={() => handleSocialSignup('Apple')}
+                    disabled={loading}
                   >
                     <Ionicons name="logo-apple" size={18} color="#FFFFFF" />
                     <Text style={styles.socialButtonText}>Apple</Text>
@@ -195,6 +205,7 @@ export default function SignupScreen({ navigation }) {
                   <TouchableOpacity
                     style={[styles.socialButton, styles.facebookButton]}
                     onPress={() => handleSocialSignup('Facebook')}
+                    disabled={loading}
                   >
                     <Ionicons name="logo-facebook" size={18} color="#FFFFFF" />
                     <Text style={styles.socialButtonText}>Facebook</Text>

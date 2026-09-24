@@ -31,11 +31,15 @@ export default function PostJobScreen({ navigation }) {
     if (Object.keys(next).length) return;
 
     setSubmitting(true);
-    await addPostedJob({ jobType, description, budget, dateNeeded, contact, photos });
+    const posted = await addPostedJob({ jobType, description: description.trim(), budget, dateNeeded: dateNeeded.trim(), contact: contact.trim(), photos });
     setSubmitting(false);
-      Alert.alert('Job posted', 'Local providers can now see your job and photos, and send quotes.', [
-        { text: 'OK', onPress: () => navigation.getParent()?.navigate('Bookings') },
-      ]);
+    if (!posted) {
+      Alert.alert('Could not post job', 'We could not save your job post. Check your connection and try again.');
+      return;
+    }
+    Alert.alert('Job posted', 'Local providers can now see your job and photos, and send quotes.', [
+      { text: 'OK', onPress: () => navigation.getParent()?.navigate('Bookings') },
+    ]);
   }
 
   return (

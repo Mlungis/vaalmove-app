@@ -22,46 +22,62 @@ export default function AddListingScreen({ navigation }) {
 
   async function handleSubmit() {
     const next = {};
+    const parsedPrice = Number(price);
+    const parsedYear = year.trim() ? Number(year) : new Date().getFullYear();
+    const parsedMinDays = Number(minDays);
     if (!title.trim()) next.title = 'Give your listing a title.';
-    if (!price.trim() || Number(price) <= 0) next.price = 'Enter a valid daily price.';
+    if (!price.trim() || !Number.isFinite(parsedPrice) || parsedPrice <= 0) next.price = 'Enter a valid daily price.';
+    if (!Number.isInteger(parsedYear) || parsedYear < 1900 || parsedYear > 2100) next.year = 'Enter a year between 1900 and 2100.';
+    if (!Number.isInteger(parsedMinDays) || parsedMinDays < 1) next.minDays = 'Enter at least 1 rental day.';
     if (!pickupLocation.trim()) next.location = 'Add a pickup location.';
     if (photos.length === 0) next.photos = 'Add at least one photo of the vehicle.';
     setErrors(next);
     if (Object.keys(next).length) return;
 
     setSubmitting(true);
-    const result = await addVehicleListing({
-        title: title.trim(),
-        category,
-        priceDaily: Number(price) || 0,
-        year: Number(year) || new Date().getFullYear(),
-        fuel: 'Diesel',
-        transmission: 'Manual',
-        provider: user.providerName,
-        location: pickupLocation.trim(),
-        image: photos[0],
-        gallery: photos,
-        minDays: Number(minDays) || 1,
-        insurance,
-        providerBadges: ['Verified provider', 'Insured', 'Response in 15 min'],
-        verification: { idVerified: true, insured: true, businessVerified: true },
-        pricingRules: { weekendSurcharge: 10, weeklyDiscount: 8, minDays: Number(minDays) || 1, cancellation: 'Free cancellation up to 48 hours' },
-        availabilityNote: 'Available for immediate bookings with instant confirmation.',
-    });
-    setSubmitting(false);
+    let result = null;
+    let submissionError = false;
+    try {
+      result = await addVehicleListing({
+          title: title.trim(),
+          category,
+          priceDaily: parsedPrice,
+          year: parsedYear,
+          fuel: 'Diesel',
+          transmission: 'Manual',
+          provider: user.providerName,
+          location: pickupLocation.trim(),
+          image: photos[0],
+          gallery: photos,
+          minDays: parsedMinDays,
+          insurance,
+          providerBadges: ['Verified provider', 'Insured', 'Response in 15 min'],
+          verification: { idVerified: true, insured: true, businessVerified: true },
+          pricingRules: { weekendSurcharge: 10, weeklyDiscount: 8, minDays: parsedMinDays, cancellation: 'Free cancellation up to 48 hours' },
+          availabilityNote: 'Available for immediate bookings with instant confirmation.',
+      });
+    } catch (error) {
+      submissionError = true;
+      Alert.alert('Could not publish', error?.message || 'We could not save this listing. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
     if (result) {
       Alert.alert('Listing added', 'Your new vehicle is now live for renters to find.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } else {
+    } else if (!submissionError) {
       Alert.alert('Could not publish', 'We could not save this listing. Check your connection and try again.');
     }
   }
 
   return (
     <View style={styles.container}>
-      <Header title="Add New Listing" onBack={() => navigation.goBack()} />
+      <Header title="Create a signature listing" subtitle="Present your vehicle at its best" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 32 }}>
+        <Text style={styles.eyebrow}>HOST WITH DISTINCTION</Text>
+        <Text style={styles.introTitle}>Add a vehicle to your collection</Text>
+        <Text style={styles.introText}>Every detail helps guests discover a more considered way to move.</Text>
         <Text style={styles.label}>Photos</Text>
         <PhotoPicker
           photos={photos}
@@ -99,24 +115,26 @@ export default function AddListingScreen({ navigation }) {
 
         <Text style={styles.label}>Year</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.year && styles.inputError]}
           placeholder="2021"
           placeholderTextColor={colors.muted}
           value={year}
-          onChangeText={setYear}
+          onChangeText={(t) => { setYear(t.replace(/\D/g, '')); if (errors.year) setErrors((e) => ({ ...e, year: null })); }}
           keyboardType="number-pad"
           maxLength={4}
         />
+        {errors.year ? <Text style={styles.errorText}>{errors.year}</Text> : null}
 
         <Text style={styles.label}>Minimum rental days</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.minDays && styles.inputError]}
           placeholder="2"
           placeholderTextColor={colors.muted}
           value={minDays}
-          onChangeText={setMinDays}
+          onChangeText={(t) => { setMinDays(t.replace(/\D/g, '')); if (errors.minDays) setErrors((e) => ({ ...e, minDays: null })); }}
           keyboardType="number-pad"
         />
+        {errors.minDays ? <Text style={styles.errorText}>{errors.minDays}</Text> : null}
 
         <Text style={styles.label}>Pickup location</Text>
         <TextInput
@@ -151,7 +169,10 @@ export default function AddListingScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface },
-  label: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.inkSoft, marginBottom: 8, marginTop: 16 },
+  eyebrow: { fontFamily: fonts.bodyBold, fontSize: 10, color: colors.skyMid, letterSpacing: 1.6, marginTop: 8 },
+  introTitle: { fontFamily: fonts.display, fontSize: 25, color: colors.ink, marginTop: 7 },
+  introText: { fontFamily: fonts.body, fontSize: 13, color: colors.muted, lineHeight: 20, marginTop: 6, marginBottom: 4 },
+  label: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.inkSoft, marginBottom: 8, marginTop: 18 },
   input: {
     backgroundColor: colors.surfaceAlt, padding: 13, borderRadius: radius.md,
     borderWidth: 1, borderColor: colors.hairline, fontFamily: fonts.body, fontSize: 14, color: colors.ink,

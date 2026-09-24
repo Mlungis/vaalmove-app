@@ -44,12 +44,12 @@ export function GhostButton({ label, onPress, style, disabled }) {
 
 const styles = StyleSheet.create({
   primary: {
-    backgroundColor: colors.white,
-    borderRadius: radius.pill,
-    paddingVertical: 16,
+    backgroundColor: colors.skyBottom,
+    borderRadius: radius.sm,
+    paddingVertical: 17,
     alignItems: 'center',
-    shadowColor: '#061A3C',
-    shadowOpacity: 0.35,
+    shadowColor: colors.skyBottom,
+    shadowOpacity: 0.25,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 10 },
     elevation: 6,
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   primaryText: {
     fontFamily: fonts.displaySemi,
     fontSize: 16,
-    color: colors.skyBottom,
+    color: '#F4E3B8',
   },
   primaryTextColored: {
     color: '#fff',
@@ -75,7 +75,6 @@ const styles = StyleSheet.create({
   ghostText: {
     fontFamily: fonts.bodySemi,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.92)',
+    color: '#E8D5B2',
   },
 });
-

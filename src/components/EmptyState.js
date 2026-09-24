@@ -3,7 +3,9 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../theme';
 
-export default function EmptyState({ icon = 'file-tray-outline', title, subtitle }) {
+import { PrimaryButton } from './Buttons';
+
+export default function EmptyState({ icon = 'file-tray-outline', title, subtitle, actionLabel, onAction }) {
   return (
     <View style={styles.wrap}>
       <View style={styles.iconWrap}>
@@ -11,6 +13,7 @@ export default function EmptyState({ icon = 'file-tray-outline', title, subtitle
       </View>
       <Text style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      {actionLabel && onAction ? <PrimaryButton label={actionLabel} onPress={onAction} style={styles.button} /> : null}
     </View>
   );
 }
@@ -30,4 +33,5 @@ const styles = StyleSheet.create({
   },
   title: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.ink, textAlign: 'center' },
   subtitle: { fontFamily: fonts.body, fontSize: 13, color: colors.muted, marginTop: 6, textAlign: 'center' },
+  button: { marginTop: 18, paddingHorizontal: 22 },
 });

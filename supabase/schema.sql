@@ -1,5 +1,6 @@
 -- LexRidesZA / VaalMove Supabase schema
--- Run this in Supabase SQL Editor, then create a public "vehicle-images" bucket.
+-- Run this entire file in the Supabase SQL Editor. It creates the public
+-- "vehicle-images" bucket and its access policies for listing photos.
 
 create extension if not exists pgcrypto;
 create extension if not exists btree_gist with schema extensions;
@@ -339,6 +340,11 @@ create policy "providers manage own availability"
   on public.vehicle_availability for all
   using (exists (select 1 from public.vehicles v where v.id = vehicle_id and v.provider_id = auth.uid()))
   with check (exists (select 1 from public.vehicles v where v.id = vehicle_id and v.provider_id = auth.uid()));
+
+grant select on table public.profiles to authenticated;
+grant select, insert, update, delete on table public.vehicles to authenticated;
+grant select, insert, update, delete on table public.vehicle_images to authenticated;
+grant select, insert, update, delete on table public.vehicle_features to authenticated;
 
 create policy "users manage own profile"
   on public.profiles for all using (id = auth.uid()) with check (id = auth.uid());

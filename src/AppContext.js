@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Linking } from 'react-native';
 import { supabase } from './lib/supabase';
 
 const AppContext = createContext(null);
@@ -164,6 +165,21 @@ export function AppProvider({ children }) {
     if (message) setError(message);
   }, []);
 
+  function listingErrorMessage(error) {
+    const message = String(error?.message || error || '');
+    const normalized = message.toLowerCase();
+    if (normalized.includes('bucket') && (normalized.includes('not found') || normalized.includes('does not exist'))) {
+      return 'Vehicle image storage is not configured. Create the public "vehicle-images" bucket in Supabase Storage, then try again.';
+    }
+    if (normalized.includes('row-level security') || normalized.includes('not authorized') || normalized.includes('permission')) {
+      return 'Supabase permissions blocked this listing. Run the vehicle and storage policies from supabase/schema.sql, then try again.';
+    }
+    if (normalized.includes('not authenticated') || normalized.includes('jwt')) {
+      return 'Your session has expired. Please sign in again before publishing a listing.';
+    }
+    return 'We could not publish this listing. Check your Supabase setup and try again.';
+  }
+
   const loadData = useCallback(async (activeSession) => {
     if (!activeSession?.user?.id) {
       setVehicles([]); setBookings([]); setFavorites([]); setConversations([]); setNotifications([]);
@@ -271,6 +287,32 @@ export function AppProvider({ children }) {
       mounted = false;
       listener.subscription.unsubscribe();
     };
+  }, [report]);
+
+  useEffect(() => {
+    async function handleAuthRedirect(url) {
+      if (!url) return;
+      const parsed = new URL(url);
+      const code = parsed.searchParams.get('code');
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) report(error.message);
+        return;
+      }
+      const hash = new URLSearchParams(parsed.hash.replace(/^#/, ''));
+      const accessToken = hash.get('access_token');
+      const refreshToken = hash.get('refresh_token');
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        if (error) report(error.message);
+      }
+    }
+
+    Linking.getInitialURL().then(handleAuthRedirect).catch((error) => report(error.message));
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleAuthRedirect(url).catch((error) => report(error.message));
+    });
+    return () => subscription.remove();
   }, [report]);
 
   useEffect(() => {
@@ -494,9 +536,17 @@ export function AppProvider({ children }) {
   async function setDefaultPaymentMethod(id) {
     if (!session?.user?.id) return;
     const result = await supabase.from('payment_methods').update({ is_default: false }).eq('user_id', session.user.id);
-    if (!result.error) await supabase.from('payment_methods').update({ is_default: true }).eq('id', id);
-    if (result.error) return report(result.error.message);
+    if (result.error) {
+      report(result.error.message);
+      return false;
+    }
+    const selectedResult = await supabase.from('payment_methods').update({ is_default: true }).eq('id', id).eq('user_id', session.user.id);
+    if (selectedResult.error) {
+      report(selectedResult.error.message);
+      return false;
+    }
     setPaymentMethods((current) => current.map((method) => ({ ...method, isDefault: method.id === id })));
+    return true;
   }
 
   async function addSavedLocation(location) {
@@ -513,10 +563,14 @@ export function AppProvider({ children }) {
   }
 
   async function addPostedJob(job) {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id) return false;
     const result = await supabase.from('job_posts').insert({ user_id: session.user.id, job_type: job.jobType, description: job.description, budget: Number(job.budget) || 0, date_needed: job.dateNeeded, contact: job.contact || null, photos: job.photos || [] }).select().single();
-    if (result.error) return report(result.error.message);
+    if (result.error) {
+      report(result.error.message);
+      return false;
+    }
     setPostedJobs((current) => [{ ...result.data, jobType: result.data.job_type, dateNeeded: result.data.date_needed, photos: result.data.photos || [], budget: String(result.data.budget) }, ...current]);
+    return true;
   }
 
   async function updateVehicleStatus(id, status) {
@@ -535,6 +589,7 @@ export function AppProvider({ children }) {
   async function uploadVehicleImage(uri, providerId, vehicleId, index) {
     if (!uri || uri.startsWith('http')) return uri;
     const response = await fetch(uri);
+    if (!response.ok) throw new Error('The selected vehicle image could not be read.');
     const blob = await response.blob();
     const path = `${providerId}/${vehicleId}/${Date.now()}-${index}.jpg`;
     const upload = await supabase.storage.from('vehicle-images').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
@@ -543,14 +598,21 @@ export function AppProvider({ children }) {
   }
 
   async function addVehicleListing(listing) {
-    if (!session?.user?.id) return null;
+    if (!session?.user?.id) throw new Error('Your session has expired. Please sign in again before publishing a listing.');
     const result = await supabase.from('vehicles').insert({
       provider_id: session.user.id, title: listing.title, category: listing.category, price_daily: listing.priceDaily,
       year: listing.year, fuel: listing.fuel, transmission: listing.transmission, description: listing.description || null,
       location_name: listing.location, status: 'published', insurance_details: listing.insurance || null,
-      min_rental_days: listing.minDays || 1, cancellation_policy: listing.pricingRules?.cancellation || null,
+      min_rental_days: listing.minDays || 1,
+      weekend_surcharge_percent: listing.pricingRules?.weekendSurcharge || 0,
+      weekly_discount_percent: listing.pricingRules?.weeklyDiscount || 0,
+      cancellation_policy: listing.pricingRules?.cancellation || null,
     }).select('*, profiles:provider_id(id, full_name, provider_name)').single();
-    if (result.error) { report(result.error.message); return null; }
+    if (result.error) {
+      const message = listingErrorMessage(result.error);
+      report(message);
+      throw new Error(message);
+    }
     try {
       const uris = listing.gallery || (listing.image ? [listing.image] : []);
       const urls = await Promise.all(uris.map((uri, index) => uploadVehicleImage(uri, session.user.id, result.data.id, index)));
@@ -567,10 +629,11 @@ export function AppProvider({ children }) {
       await loadData(session);
       return mapVehicle({ ...result.data, vehicle_images: urls.map((storage_path, index) => ({ storage_path, display_order: index })), vehicle_features: (listing.features || []).map((feature) => ({ feature })) });
     } catch (uploadError) {
-      report(uploadError.message || 'Listing created, but image upload failed.');
+      const message = listingErrorMessage(uploadError);
+      report(message);
       await supabase.from('vehicles').delete().eq('id', result.data.id).eq('provider_id', session.user.id);
       await loadData(session);
-      return null;
+      throw new Error(message);
     }
   }
 

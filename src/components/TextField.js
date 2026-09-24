@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { fonts, radius } from '../theme';
@@ -12,15 +12,24 @@ export default function TextField({
   containerStyle,
   ...inputProps
 }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={[styles.field, containerStyle]}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <View style={[styles.inputWrap, error && styles.inputError]}>
+      <View style={[styles.inputWrap, focused && styles.inputFocused, error && styles.inputError]}>
         {icon ? <Ionicons name={icon} size={17} color="rgba(255,255,255,0.8)" /> : null}
         <TextInput
           style={styles.input}
           placeholderTextColor="rgba(255,255,255,0.55)"
           {...inputProps}
+          onFocus={(event) => {
+            setFocused(true);
+            inputProps.onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            inputProps.onBlur?.(event);
+          }}
         />
         {rightIcon ? (
           <TouchableOpacity onPress={onRightIconPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -53,6 +62,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   inputError: { borderColor: '#FFB4B4' },
+  inputFocused: { borderColor: '#E8D5B2', backgroundColor: 'rgba(255,255,255,0.22)' },
   input: {
     flex: 1,
     fontFamily: fonts.body,

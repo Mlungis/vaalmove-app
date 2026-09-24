@@ -1,1 +1,8 @@
-{}
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^npx expo export --platform web; git diff --check; git status --short$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

@@ -12,6 +12,7 @@ export default function DashboardCard({
   image,
   description,
   accent,
+  style,
 }) {
   if (image) {
     return (
@@ -27,7 +28,7 @@ export default function DashboardCard({
   }
 
   return (
-    <TouchableOpacity activeOpacity={0.85} style={[styles.card, { backgroundColor: bg }]} onPress={onPress}>
+    <TouchableOpacity activeOpacity={0.85} style={[styles.card, style, { backgroundColor: bg }]} onPress={onPress}>
       <View style={styles.bubble}>
         <Icon name={iconName} size={20} color={iconColor} />
       </View>

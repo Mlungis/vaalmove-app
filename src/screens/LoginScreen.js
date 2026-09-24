@@ -17,6 +17,7 @@ import { PrimaryButton } from '../components/Buttons';
 import { fonts, radius } from '../theme';
 import { useAppContext } from '../AppContext';
 import { supabase } from '../lib/supabase';
+import { startOAuth } from '../lib/oauth';
 
 export default function LoginScreen({ navigation }) {
   const { updateUser } = useAppContext();
@@ -52,8 +53,15 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  const handleSocialLogin = (provider) => {
-    Alert.alert('Continue with ' + provider, 'This social login button is ready for your auth integration.');
+  const handleSocialLogin = async (provider) => {
+    setLoading(true);
+    try {
+      await startOAuth(provider);
+    } catch (error) {
+      setErrors({ form: error.message || 'Could not start social sign-in.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -110,6 +118,7 @@ export default function LoginScreen({ navigation }) {
                   <TouchableOpacity
                     style={[styles.socialButton, styles.googleButton]}
                     onPress={() => handleSocialLogin('Google')}
+                    disabled={loading}
                   >
                     <MaterialCommunityIcons name="google" size={18} color="#FFFFFF" />
                     <Text style={styles.socialButtonText}>Google</Text>
@@ -118,6 +127,7 @@ export default function LoginScreen({ navigation }) {
                   <TouchableOpacity
                     style={[styles.socialButton, styles.appleButton]}
                     onPress={() => handleSocialLogin('Apple')}
+                    disabled={loading}
                   >
                     <MaterialCommunityIcons name="apple" size={18} color="#FFFFFF" />
                     <Text style={styles.socialButtonText}>Apple</Text>
@@ -126,6 +136,7 @@ export default function LoginScreen({ navigation }) {
                   <TouchableOpacity
                     style={[styles.socialButton, styles.facebookButton]}
                     onPress={() => handleSocialLogin('Facebook')}
+                    disabled={loading}
                   >
                     <MaterialCommunityIcons name="facebook" size={18} color="#FFFFFF" />
                     <Text style={styles.socialButtonText}>Facebook</Text>
@@ -172,9 +183,7 @@ const styles = StyleSheet.create({
   logoLex: {
     color: '#57d9ff',
     fontWeight: '800',
-    textShadowColor: 'rgba(87, 217, 255, 0.45)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    textShadow: '0px 0px 10px rgba(87, 217, 255, 0.45)',
   },
   title: { fontFamily: fonts.display, fontSize: 24, color: '#fff' },
   subtitle: { fontFamily: fonts.body, fontSize: 13.5, color: 'rgba(255,255,255,0.75)', marginTop: 6 },
