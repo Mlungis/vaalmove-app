@@ -131,6 +131,8 @@ create table public.bookings (
     'pending', 'confirmed', 'active', 'completed', 'cancelled', 'rejected'
   )),
   payment_status text not null default 'unpaid' check (payment_status in ('unpaid', 'pending', 'paid', 'refunded', 'failed')),
+  rental_terms_version text,
+  rental_terms_accepted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (dropoff_at > pickup_at)

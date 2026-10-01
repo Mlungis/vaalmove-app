@@ -21,6 +21,41 @@ export default function SettingsScreen({ navigation }) {
           </Text>
         </View>
 
+        <Text style={styles.sectionLabel}>About & legal</Text>
+        <View style={[styles.card, shadow.soft, { paddingHorizontal: 12 }]}>
+          <ListRow
+            icon="information-circle-outline"
+            label="About LexRidesZA"
+            onPress={() => navigation.navigate('LegalInformation', { document: 'about' })}
+          />
+          <ListRow
+            icon="document-text-outline"
+            label="Terms of Service"
+            onPress={() => navigation.navigate('LegalInformation', { document: 'terms' })}
+          />
+          <ListRow
+            icon="shield-checkmark-outline"
+            label="Privacy Policy"
+            onPress={() => navigation.navigate('LegalInformation', { document: 'privacy' })}
+          />
+          <ListRow
+            icon="calendar-outline"
+            label="Cancellation & Refunds"
+            onPress={() => navigation.navigate('LegalInformation', { document: 'cancellation' })}
+          />
+          <ListRow
+            icon="people-outline"
+            label="Safety & Listing Standards"
+            onPress={() => navigation.navigate('LegalInformation', { document: 'community' })}
+          />
+          <ListRow
+            icon="phone-portrait-outline"
+            label="Cookies & App Data"
+            onPress={() => navigation.navigate('LegalInformation', { document: 'cookies' })}
+            noBorder
+          />
+        </View>
+
         <Text style={styles.sectionLabel}>Account</Text>
         <View style={[styles.card, shadow.soft, { paddingHorizontal: 12 }]}>
           <ListRow

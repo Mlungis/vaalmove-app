@@ -98,6 +98,23 @@ Never put a Supabase service-role key or Paystack secret key in an Expo
 - Booking-linked conversations, message read states, booking notifications,
   and realtime refreshes.
 
+## Legal information
+
+The app includes in-app Terms of Service, Privacy Policy, Cancellation &
+Refunds, Safety & Listing Standards, Cookies & App Data, and About documents.
+They are available from the signup consent links, booking consent, and
+**Profile → Settings → About & legal**. Signup acceptance records the document
+versions and timestamp in account metadata; rental acceptance is stored with
+the booking. Update `src/lib/legal.js` and the corresponding content in
+`src/screens/LegalInformationScreen.js` together when publishing a new version.
+
+The legal content is a product draft, not a substitute for review by qualified
+South African counsel. Before public launch, the operator must confirm the
+contracting entity, business and Information Officer contact details, actual
+data-retention and cross-border arrangements, refund processes, and the
+production app's cookie/analytics configuration. Configure support contacts
+using `EXPO_PUBLIC_SUPPORT_EMAIL` and `EXPO_PUBLIC_SUPPORT_PHONE`.
+
 ## Payment and booking smoke test
 
 Use Paystack test credentials until the complete checkout flow has been

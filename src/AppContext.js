@@ -321,6 +321,48 @@ export function AppProvider({ children }) {
   }, [report]);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !session?.user?.id) return undefined;
+    const acceptanceKey = 'lexridesza-legal-acceptance';
+    const savedAcceptance = window.sessionStorage.getItem(acceptanceKey);
+    if (!savedAcceptance) return undefined;
+
+    let legalAcceptance;
+    try {
+      legalAcceptance = JSON.parse(savedAcceptance);
+    } catch {
+      window.sessionStorage.removeItem(acceptanceKey);
+      report('We could not record your legal acceptance. Please review the terms and try signing in again.');
+      return undefined;
+    }
+    if (
+      !legalAcceptance
+      || typeof legalAcceptance !== 'object'
+      || typeof legalAcceptance.legal_terms_version !== 'string'
+      || typeof legalAcceptance.privacy_policy_version !== 'string'
+      || typeof legalAcceptance.legal_accepted_at !== 'string'
+    ) {
+      window.sessionStorage.removeItem(acceptanceKey);
+      report('We could not record your legal acceptance. Please review the terms and try signing in again.');
+      return undefined;
+    }
+
+    let active = true;
+    supabase.auth.updateUser({ data: legalAcceptance }).then(({ error: acceptanceError }) => {
+      if (!active) return;
+      if (acceptanceError) {
+        report(`Your account was created, but legal acceptance could not be recorded: ${acceptanceError.message}`);
+        return;
+      }
+      window.sessionStorage.removeItem(acceptanceKey);
+    }).catch((acceptanceError) => {
+      if (active) {
+        report(`Your account was created, but legal acceptance could not be recorded: ${acceptanceError?.message || 'Please contact support.'}`);
+      }
+    });
+    return () => { active = false; };
+  }, [session?.user?.id, report]);
+
+  useEffect(() => {
     async function handleAuthRedirect(url) {
       if (!url) return;
       const parsed = new URL(url);
@@ -515,6 +557,9 @@ export function AppProvider({ children }) {
 
   async function addBooking(booking) {
     if (!session?.user?.id) throw new Error('Sign in to create a booking.');
+    if (!booking.rentalTermsVersion || !booking.rentalTermsAcceptedAt) {
+      throw new Error('Review and accept the rental terms before continuing.');
+    }
     const result = await supabase.from('bookings').insert({
       renter_id: session.user.id,
       vehicle_id: booking.vehicleId,
@@ -526,6 +571,8 @@ export function AppProvider({ children }) {
       total: booking.total,
       status: 'pending',
       payment_status: 'unpaid',
+      rental_terms_version: booking.rentalTermsVersion,
+      rental_terms_accepted_at: booking.rentalTermsAcceptedAt,
     }).select().single();
     if (result.error) {
       report(result.error.message);

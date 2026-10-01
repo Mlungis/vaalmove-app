@@ -6,6 +6,7 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import LegalInformationScreen from '../screens/LegalInformationScreen';
 import MainTabs from './MainTabs';
 import { useAppContext } from '../AppContext';
 import LoadingState from '../components/LoadingState';
@@ -46,6 +47,7 @@ export default function RootNavigator() {
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Signup" component={SignupScreen} />
+      <Stack.Screen name="LegalInformation" component={LegalInformationScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
     </Stack.Navigator>

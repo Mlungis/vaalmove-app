@@ -6,6 +6,7 @@ import Header from '../components/Header';
 import { PrimaryButton } from '../components/Buttons';
 import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
+import { TERMS_VERSION } from '../lib/legal';
 
 function fmt(d) {
   if (!d) return '--';
@@ -27,7 +28,12 @@ export default function BookingSummaryScreen({ navigation, route }) {
       Alert.alert('Almost there', 'Please accept the rental terms to continue.');
       return;
     }
-    setBookingDraft({ ...draft, total });
+    setBookingDraft({
+      ...draft,
+      total,
+      rentalTermsVersion: TERMS_VERSION,
+      rentalTermsAcceptedAt: new Date().toISOString(),
+    });
     navigation.navigate('Payment', { id });
   }
 
@@ -56,12 +62,27 @@ export default function BookingSummaryScreen({ navigation, route }) {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.checkRow} onPress={() => setAgreed((v) => !v)}>
-          <View style={[styles.checkbox, agreed && styles.checkboxActive]}>
+        <View style={styles.checkRow}>
+          <TouchableOpacity
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: agreed }}
+            style={[styles.checkbox, agreed && styles.checkboxActive]}
+            onPress={() => setAgreed((value) => !value)}
+          >
             {agreed ? <Ionicons name="checkmark" size={13} color="#fff" /> : null}
-          </View>
-          <Text style={styles.checkLabel}>I agree to the rental terms, mileage limits, and cancellation policy.</Text>
-        </TouchableOpacity>
+          </TouchableOpacity>
+          <Text style={styles.checkLabel}>
+            I agree to the{' '}
+            <Text style={styles.legalLink} onPress={() => navigation.navigate('LegalInformation', { document: 'terms' })}>
+              Terms of Service
+            </Text>
+            , the applicable listing terms and{' '}
+            <Text style={styles.legalLink} onPress={() => navigation.navigate('LegalInformation', { document: 'cancellation' })}>
+              cancellation policy
+            </Text>
+            .
+          </Text>
+        </View>
 
         <PrimaryButton label="Proceed to Payment" onPress={handleContinue} style={{ backgroundColor: colors.skyBottom }} />
       </ScrollView>
@@ -88,4 +109,5 @@ const styles = StyleSheet.create({
   checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: colors.hairline, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxActive: { backgroundColor: colors.skyBottom, borderColor: colors.skyBottom },
   checkLabel: { flex: 1, fontFamily: fonts.body, fontSize: 12.5, color: colors.inkSoft, lineHeight: 18 },
+  legalLink: { fontFamily: fonts.bodySemi, color: colors.skyBottom, textDecorationLine: 'underline' },
 });

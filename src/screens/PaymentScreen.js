@@ -42,6 +42,8 @@ export default function PaymentScreen({ navigation, route }) {
           subtotal: draft.subtotal,
           location: vehicle.location,
           paymentStatus: 'unpaid',
+          rentalTermsVersion: draft.rentalTermsVersion,
+          rentalTermsAcceptedAt: draft.rentalTermsAcceptedAt,
         });
         bookingId = booking.id;
         setPendingBookingId(bookingId);

@@ -10,6 +10,7 @@ import HelpSupportScreen from '../screens/HelpSupportScreen';
 import ProviderDashboardScreen from '../screens/ProviderDashboardScreen';
 import AddListingScreen from '../screens/AddListingScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
+import LegalInformationScreen from '../screens/LegalInformationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -26,6 +27,7 @@ export default function ProfileStack() {
       <Stack.Screen name="ProviderDashboard" component={ProviderDashboardScreen} />
       <Stack.Screen name="AddListing" component={AddListingScreen} />
       <Stack.Screen name="Favorites" component={FavoritesScreen} />
+      <Stack.Screen name="LegalInformation" component={LegalInformationScreen} />
     </Stack.Navigator>
   );
 }

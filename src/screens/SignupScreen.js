@@ -17,6 +17,7 @@ import { PrimaryButton } from '../components/Buttons';
 import { colors, fonts, radius } from '../theme';
 import { supabase } from '../lib/supabase';
 import { startOAuth } from '../lib/oauth';
+import { PRIVACY_VERSION, TERMS_VERSION } from '../lib/legal';
 
 export default function SignupScreen({ navigation }) {
   const [fullName, setFullName] = useState('');
@@ -52,6 +53,9 @@ export default function SignupScreen({ navigation }) {
             data: {
               full_name: fullName.trim(),
               phone: phone.trim(),
+              legal_terms_version: TERMS_VERSION,
+              privacy_policy_version: PRIVACY_VERSION,
+              legal_accepted_at: new Date().toISOString(),
             },
           },
         });
@@ -80,10 +84,29 @@ export default function SignupScreen({ navigation }) {
   };
 
   const handleSocialSignup = async (provider) => {
+    if (!agreed) {
+      setErrors({ terms: 'Please review and accept the Terms of Service and Privacy Policy to continue.' });
+      return;
+    }
+    const legalAcceptance = {
+      legal_terms_version: TERMS_VERSION,
+      privacy_policy_version: PRIVACY_VERSION,
+      legal_accepted_at: new Date().toISOString(),
+    };
     setLoading(true);
     try {
+      if (Platform.OS === 'web') {
+        window.sessionStorage.setItem('lexridesza-legal-acceptance', JSON.stringify(legalAcceptance));
+      }
       await startOAuth(provider);
+      if (Platform.OS !== 'web') {
+        const { error } = await supabase.auth.updateUser({ data: legalAcceptance });
+        if (error) throw error;
+      }
     } catch (error) {
+      if (Platform.OS === 'web') {
+        window.sessionStorage.removeItem('lexridesza-legal-acceptance');
+      }
       setErrors({ form: error.message || 'Could not start social sign-up.' });
     } finally {
       setLoading(false);
@@ -155,14 +178,30 @@ export default function SignupScreen({ navigation }) {
                 onRightIconPress={() => setShowConfirm((v) => !v)}
               />
 
-              <TouchableOpacity style={styles.checkboxRow} onPress={() => setAgreed((v) => !v)}>
-                <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
+              <View style={styles.checkboxRow}>
+                <TouchableOpacity
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: agreed }}
+                  style={[styles.checkbox, agreed && styles.checkboxChecked]}
+                  onPress={() => {
+                    setAgreed((value) => !value);
+                    setErrors((current) => ({ ...current, terms: undefined }));
+                  }}
+                >
                   {agreed ? <Ionicons name="checkmark" size={13} color={colors.skyBottom} /> : null}
-                </View>
+                </TouchableOpacity>
                 <Text style={styles.checkboxLabel}>
-                  I agree to LexRidesZA's Terms of Service and Privacy Policy.
+                  I have read and agree to LexRidesZA's{' '}
+                  <Text style={styles.legalLink} onPress={() => navigation.navigate('LegalInformation', { document: 'terms' })}>
+                    Terms of Service
+                  </Text>
+                  {' '}and{' '}
+                  <Text style={styles.legalLink} onPress={() => navigation.navigate('LegalInformation', { document: 'privacy' })}>
+                    Privacy Policy
+                  </Text>
+                  .
                 </Text>
-              </TouchableOpacity>
+              </View>
               {errors.terms ? <Text style={styles.termsError}>{errors.terms}</Text> : null}
 
               <View style={styles.socialSection}>
@@ -246,6 +285,7 @@ const styles = StyleSheet.create({
   },
   checkboxChecked: { backgroundColor: '#fff', borderColor: '#fff' },
   checkboxLabel: { flex: 1, fontFamily: fonts.body, fontSize: 12.5, color: 'rgba(255,255,255,0.8)', lineHeight: 18 },
+  legalLink: { fontFamily: fonts.bodyBold, color: '#FFFFFF', textDecorationLine: 'underline' },
   termsError: { fontFamily: fonts.bodySemi, fontSize: 12, color: '#FFD9D9', marginBottom: 14 },
   formError: { color: '#FFB4B4', fontFamily: fonts.bodySemi, fontSize: 12, marginTop: 10, textAlign: 'center' },
   socialSection: { marginTop: 8, marginBottom: 18 },

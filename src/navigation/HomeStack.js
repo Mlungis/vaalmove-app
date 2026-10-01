@@ -14,6 +14,7 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
 import VehicleTrackingScreen from '../screens/VehicleTrackingScreen';
 import DriverDashboardScreen from '../screens/DriverDashboardScreen';
+import LegalInformationScreen from '../screens/LegalInformationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -34,6 +35,7 @@ export default function HomeStack() {
       <Stack.Screen name="PostJob" component={PostJobScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Favorites" component={FavoritesScreen} />
+      <Stack.Screen name="LegalInformation" component={LegalInformationScreen} />
     </Stack.Navigator>
   );
 }
