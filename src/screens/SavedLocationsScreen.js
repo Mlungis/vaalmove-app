@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput } from 'react-native';
+import { Alert } from '../lib/alerts';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import EmptyState from '../components/EmptyState';

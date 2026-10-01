@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -19,6 +19,7 @@ export default function ChatThreadScreen({ navigation, route }) {
   const id = route?.params?.id;
   const conversation = conversations.find((c) => c.id === id);
   const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -34,11 +35,17 @@ export default function ChatThreadScreen({ navigation, route }) {
     );
   }
 
-  function handleSend() {
-    if (!text.trim()) return;
-    sendMessage(id, text.trim());
-    setText('');
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  async function handleSend() {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    try {
+      const sent = await sendMessage(id, text.trim());
+      if (!sent) return;
+      setText('');
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -76,8 +83,8 @@ export default function ChatThreadScreen({ navigation, route }) {
           onChangeText={setText}
           multiline
         />
-        <TouchableOpacity style={styles.sendBtn} onPress={handleSend}>
-          <Ionicons name="send" size={16} color="#fff" />
+        <TouchableOpacity style={[styles.sendBtn, sending && styles.sendBtnDisabled]} onPress={handleSend} disabled={sending}>
+          {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={16} color="#fff" />}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -111,4 +118,5 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20, backgroundColor: colors.skyBottom,
     alignItems: 'center', justifyContent: 'center',
   },
+  sendBtnDisabled: { opacity: 0.65 },
 });

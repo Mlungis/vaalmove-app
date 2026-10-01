@@ -1,43 +1,24 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { Alert } from '../lib/alerts';
 import Header from '../components/Header';
-import Chip from '../components/Chip';
 import ListRow from '../components/ListRow';
 import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
 
 export default function SettingsScreen({ navigation }) {
-  const { appSettings, updateAppSettings, deleteAccount } = useAppContext();
-  const { language, currency, darkMode, biometric } = appSettings;
+  const { deleteAccount } = useAppContext();
 
   return (
     <View style={styles.container}>
       <Header title="Settings" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: 18 }}>
-        <Text style={styles.sectionLabel}>Language</Text>
-        <View style={styles.chipRow}>
-          {['English', 'Afrikaans', 'isiZulu', 'Sesotho'].map((l) => (
-            <Chip key={l} label={l} active={language === l} onPress={() => updateAppSettings({ language: l })} />
-          ))}
-        </View>
-
-        <Text style={styles.sectionLabel}>Currency</Text>
-        <View style={styles.chipRow}>
-          {['ZAR (R)', 'USD ($)'].map((c) => (
-            <Chip key={c} label={c} active={currency === c} onPress={() => updateAppSettings({ currency: c })} />
-          ))}
-        </View>
-
-        <Text style={styles.sectionLabel}>Preferences</Text>
+        <Text style={styles.sectionLabel}>Available in this preview</Text>
         <View style={[styles.card, shadow.soft]}>
-          <View style={styles.row}>
-            <Text style={styles.label}>Dark mode</Text>
-            <Switch value={darkMode} onValueChange={(value) => updateAppSettings({ darkMode: value })} trackColor={{ false: colors.hairline, true: colors.skyMid }} thumbColor="#fff" />
-          </View>
-          <View style={[styles.row, { borderBottomWidth: 0 }]}>
-            <Text style={styles.label}>Biometric login (Face/Touch ID)</Text>
-            <Switch value={biometric} onValueChange={(value) => updateAppSettings({ biometric: value })} trackColor={{ false: colors.hairline, true: colors.skyMid }} thumbColor="#fff" />
-          </View>
+          <Text style={styles.info}>
+            The app currently uses English and South African rand (ZAR). Additional
+            languages, USD display, dark mode, and biometric login are not available yet.
+          </Text>
         </View>
 
         <Text style={styles.sectionLabel}>Account</Text>
@@ -72,9 +53,7 @@ export default function SettingsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface },
   sectionLabel: { fontFamily: fonts.bodySemi, fontSize: 12.5, color: colors.muted, marginTop: 18, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
-  card: { backgroundColor: colors.surfaceAlt, borderRadius: radius.md, paddingHorizontal: 14 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.hairline },
-  label: { fontFamily: fonts.bodySemi, fontSize: 13.5, color: colors.ink, flex: 1, marginRight: 12 },
+  card: { backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 14 },
+  info: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   version: { textAlign: 'center', color: colors.muted, fontFamily: fonts.body, fontSize: 11.5, marginTop: 28 },
 });

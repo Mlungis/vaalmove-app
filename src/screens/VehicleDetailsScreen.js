@@ -1,37 +1,77 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, Share, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import StarRating from '../components/StarRating';
 import Avatar from '../components/Avatar';
 import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
+import { Alert } from '../lib/alerts';
+import { shareMessage } from '../lib/share';
 
-const { width } = Dimensions.get('window');
+const REPORT_REASONS = ['Incorrect information', 'Suspicious listing', 'Inappropriate content', 'Other'];
 
 export default function VehicleDetailsScreen({ navigation, route }) {
-  const { getVehicleById, getVehicleReviews, isFavorite, toggleFavorite } = useAppContext();
+  const {
+    getVehicleById,
+    getVehicleReviews,
+    isFavorite,
+    toggleFavorite,
+    startVehicleConversation,
+    reportVehicleListing,
+  } = useAppContext();
   const id = route?.params?.id;
   const vehicle = getVehicleById(id) || {};
   const reviews = getVehicleReviews(id);
-  const providerBadges = vehicle.providerBadges || ['Verified provider'];
+  const providerBadges = vehicle.providerBadges || [];
   const pricingRules = vehicle.pricingRules || {};
   const gallery = vehicle.gallery && vehicle.gallery.length ? vehicle.gallery : [vehicle.image].filter(Boolean);
-  const [activeImage, setActiveImage] = React.useState(0);
+  const [activeImage, setActiveImage] = useState(0);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
+  const [reportDetails, setReportDetails] = useState('');
+  const [reporting, setReporting] = useState(false);
+  const [reportFeedback, setReportFeedback] = useState('');
+  const [contacting, setContacting] = useState(false);
   const favorite = isFavorite(id);
 
   function handleShare() {
-    Share.share({
-      message: `Check out the ${vehicle.title} on LexRidesZA — R${vehicle.priceDaily}/day.`,
-    }).catch(() => {});
+    shareMessage(
+      'LexRidesZA vehicle',
+      `Check out the ${vehicle.title} on LexRidesZA — R${vehicle.priceDaily}/day.`,
+    );
   }
 
-  function handleContactProvider() {
-    Alert.alert('Message sent', `Your enquiry about the ${vehicle.title} was sent to ${vehicle.provider}.`);
+  async function handleContactProvider() {
+    if (contacting) return;
+    setContacting(true);
+    try {
+      const conversationId = await startVehicleConversation(id);
+      if (!conversationId) return;
+      navigation.getParent()?.navigate('Messages', {
+        screen: 'ChatThread',
+        params: { id: conversationId },
+      });
+    } catch (error) {
+      Alert.alert('Could not open conversation', error?.message || 'Please try again.');
+    } finally {
+      setContacting(false);
+    }
   }
 
-  function handleReportIssue() {
-    Alert.alert('Issue reporting', 'A support agent would review this listing for quality and safety checks.');
+  async function handleReportIssue() {
+    if (!id || reporting) return;
+    setReporting(true);
+    try {
+      const submitted = await reportVehicleListing(id, reportReason, reportDetails);
+      if (!submitted) return;
+      setReportOpen(false);
+      setReportDetails('');
+      setReportReason(REPORT_REASONS[0]);
+      setReportFeedback('Thanks. Your report was submitted for review.');
+    } finally {
+      setReporting(false);
+    }
   }
 
   return (
@@ -87,39 +127,41 @@ export default function VehicleDetailsScreen({ navigation, route }) {
             </View>
           </View>
 
-          <TouchableOpacity style={[styles.providerCard, shadow.soft]} onPress={() => navigation.getParent?.().navigate('Messages')}>
+          <TouchableOpacity style={[styles.providerCard, shadow.soft]} onPress={handleContactProvider} disabled={contacting}>
             <Avatar initials={(vehicle.provider || '??').slice(0, 2).toUpperCase()} size={44} color={colors.skyMid} />
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.providerName}>{vehicle.provider}</Text>
-              <Text style={styles.providerMeta}>Usually responds within {vehicle.verification?.businessVerified ? '15 min' : '1 hour'}</Text>
+              <Text style={styles.providerMeta}>{contacting ? 'Opening conversation…' : 'Tap to message this provider'}</Text>
             </View>
-            <TouchableOpacity style={styles.chatBtn} onPress={handleContactProvider}>
+            <View style={styles.chatBtn}>
               <Ionicons name="chatbubble-outline" size={16} color={colors.skyBottom} />
-            </TouchableOpacity>
+            </View>
           </TouchableOpacity>
 
-          <View style={[styles.badgeRow, shadow.soft]}>
-            {providerBadges.map((badge) => (
-              <View key={badge} style={styles.badgeChip}>
-                <Ionicons name="shield-checkmark" size={12} color={colors.success} />
-                <Text style={styles.badgeText}>{badge}</Text>
-              </View>
-            ))}
-          </View>
+          {providerBadges.length ? (
+            <View style={[styles.badgeRow, shadow.soft]}>
+              {providerBadges.map((badge) => (
+                <View key={badge} style={styles.badgeChip}>
+                  <Ionicons name="shield-checkmark" size={12} color={colors.success} />
+                  <Text style={styles.badgeText}>{badge}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
           <View style={[styles.availabilityCard, shadow.soft]}>
             <View style={styles.availabilityHeader}>
               <Text style={styles.sectionTitle}>Trust & availability</Text>
-              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Ionicons name="information-circle-outline" size={16} color={colors.muted} />
             </View>
-            <Text style={styles.availabilityText}>{vehicle.availabilityNote || 'Available for immediate booking'}</Text>
+            <Text style={styles.availabilityText}>{vehicle.availabilityNote || 'Check dates for availability'}</Text>
             <View style={styles.metaRow}>
               <Text style={styles.metaRowLabel}>Verified ID</Text>
               <Text style={styles.metaRowValue}>{vehicle.verification?.idVerified ? 'Yes' : 'Pending'}</Text>
             </View>
             <View style={styles.metaRow}>
-              <Text style={styles.metaRowLabel}>Insurance</Text>
-              <Text style={styles.metaRowValue}>{vehicle.verification?.insured ? 'Included' : 'Not included'}</Text>
+              <Text style={styles.metaRowLabel}>Insurance details</Text>
+              <Text style={styles.metaRowValue}>{vehicle.insurance ? 'Listed below' : 'Ask provider'}</Text>
             </View>
           </View>
 
@@ -131,22 +173,24 @@ export default function VehicleDetailsScreen({ navigation, route }) {
                 <Text style={styles.priceCellLabel}>per day</Text>
               </View>
               <View style={styles.priceCell}>
-                <Text style={styles.priceCellValue}>R{vehicle.priceDaily ? Math.round(vehicle.priceDaily * 6 * (1 - (pricingRules.weeklyDiscount || 0) / 100)) : '--'}</Text>
+                <Text style={styles.priceCellValue}>R{vehicle.priceDaily ? Math.round(vehicle.priceDaily * 7 * (1 - (pricingRules.weeklyDiscount || 0) / 100)) : '--'}</Text>
                 <Text style={styles.priceCellLabel}>week price</Text>
               </View>
               <View style={styles.priceCell}>
-                <Text style={styles.priceCellValue}>R{vehicle.priceDaily ? Math.round(vehicle.priceDaily * 22 * (1 - (pricingRules.weeklyDiscount || 0) / 100)) : '--'}</Text>
+                <Text style={styles.priceCellValue}>R{vehicle.priceDaily ? Math.round(vehicle.priceDaily * 30 * (1 - (pricingRules.weeklyDiscount || 0) / 100)) : '--'}</Text>
                 <Text style={styles.priceCellLabel}>month price</Text>
               </View>
             </View>
-            <Text style={styles.pricingNote}>Weekend surcharge: {pricingRules.weekendSurcharge || 10}% · {pricingRules.cancellation || 'Standard terms apply'}</Text>
+            <Text style={styles.pricingNote}>
+              Weekend surcharge: {pricingRules.weekendSurcharge ?? 0}% · {pricingRules.cancellation || 'Contact provider to confirm cancellation terms'}
+            </Text>
           </View>
 
-          <Text style={styles.sectionTitle}>What's included</Text>
+          <Text style={styles.sectionTitle}>Insurance & cover</Text>
           <View style={[styles.infoCard, shadow.soft]}>
-            {['Insurance', 'Roadside assist', '150km/day included'].map((f) => (
+            {(vehicle.insurance ? [vehicle.insurance] : ['Ask the provider to confirm insurance and mileage terms.']).map((f) => (
               <View key={f} style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                <Ionicons name={vehicle.insurance ? 'document-text-outline' : 'information-circle-outline'} size={16} color={vehicle.insurance ? colors.skyBottom : colors.muted} />
                 <Text style={styles.featureText}>{f}</Text>
               </View>
             ))}
@@ -168,7 +212,7 @@ export default function VehicleDetailsScreen({ navigation, route }) {
 
           <View style={styles.reviewHeaderRow}>
             <Text style={styles.sectionTitle}>Reviews ({vehicle.reviews || 0})</Text>
-            <TouchableOpacity onPress={handleReportIssue}>
+            <TouchableOpacity onPress={() => setReportOpen(true)}>
               <Text style={styles.reportLink}>Report issue</Text>
             </TouchableOpacity>
           </View>
@@ -184,6 +228,7 @@ export default function VehicleDetailsScreen({ navigation, route }) {
               <Text style={styles.reviewText}>{r.text}</Text>
             </View>
           ))}
+          {reportFeedback ? <Text style={styles.reportSuccess}>{reportFeedback}</Text> : null}
         </View>
       </ScrollView>
 
@@ -196,6 +241,49 @@ export default function VehicleDetailsScreen({ navigation, route }) {
           <Text style={styles.ctaText}>Check Availability</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={reportOpen} transparent animationType="slide" onRequestClose={() => setReportOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Report this listing</Text>
+              <TouchableOpacity onPress={() => setReportOpen(false)} disabled={reporting}>
+                <Ionicons name="close" size={22} color={colors.ink} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.reportPrompt}>Choose a reason</Text>
+            <View style={styles.reportReasons}>
+              {REPORT_REASONS.map((reason) => (
+                <TouchableOpacity
+                  key={reason}
+                  style={[styles.reportReason, reportReason === reason && styles.reportReasonSelected]}
+                  onPress={() => setReportReason(reason)}
+                >
+                  <Text style={[styles.reportReasonText, reportReason === reason && styles.reportReasonTextSelected]}>{reason}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={styles.reportInput}
+              placeholder="Add details (optional)"
+              placeholderTextColor={colors.muted}
+              value={reportDetails}
+              onChangeText={setReportDetails}
+              multiline
+              maxLength={1000}
+            />
+            <TouchableOpacity
+              style={[styles.submitReport, reporting && styles.submitReportDisabled]}
+              onPress={handleReportIssue}
+              disabled={reporting}
+            >
+              {reporting
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.submitReportText}>Submit report</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -225,6 +313,21 @@ const styles = StyleSheet.create({
   providerName: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.ink },
   providerMeta: { fontFamily: fonts.body, fontSize: 11.5, color: colors.muted, marginTop: 2 },
   chatBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.blueBg, alignItems: 'center', justifyContent: 'center' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay },
+  modalCard: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingBottom: 32 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  modalTitle: { fontFamily: fonts.displaySemi, fontSize: 17, color: colors.ink },
+  reportPrompt: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.inkSoft, marginBottom: 8 },
+  reportReasons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  reportReason: { borderRadius: 999, borderWidth: 1, borderColor: colors.hairline, paddingHorizontal: 12, paddingVertical: 8 },
+  reportReasonSelected: { backgroundColor: colors.blueBg, borderColor: colors.skyBottom },
+  reportReasonText: { fontFamily: fonts.body, fontSize: 12, color: colors.inkSoft },
+  reportReasonTextSelected: { color: colors.skyBottom, fontFamily: fonts.bodySemi },
+  reportInput: { minHeight: 92, maxHeight: 150, textAlignVertical: 'top', backgroundColor: colors.surfaceAlt, borderRadius: radius.md, borderWidth: 1, borderColor: colors.hairline, padding: 12, color: colors.ink, fontFamily: fonts.body, fontSize: 13 },
+  submitReport: { alignItems: 'center', justifyContent: 'center', minHeight: 48, backgroundColor: colors.skyBottom, borderRadius: radius.md, marginTop: 14 },
+  submitReportDisabled: { opacity: 0.6 },
+  submitReportText: { color: '#fff', fontFamily: fonts.bodySemi, fontSize: 14 },
+  reportSuccess: { color: colors.success, fontFamily: fonts.bodySemi, fontSize: 12.5, marginTop: 12 },
   sectionTitle: { fontFamily: fonts.displaySemi, fontSize: 15, color: colors.ink, marginBottom: 10, marginTop: 4 },
   infoCard: { backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 14, marginBottom: 18 },
   priceGrid: { flexDirection: 'row', justifyContent: 'space-between' },

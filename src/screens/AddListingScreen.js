@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { Alert } from '../lib/alerts';
 import Header from '../components/Header';
 import Chip from '../components/Chip';
 import PhotoPicker from '../components/PhotoPicker';
@@ -39,22 +40,24 @@ export default function AddListingScreen({ navigation }) {
     let submissionError = false;
     try {
       result = await addVehicleListing({
-          title: title.trim(),
-          category,
-          priceDaily: parsedPrice,
-          year: parsedYear,
-          fuel: 'Diesel',
-          transmission: 'Manual',
-          provider: user.providerName,
-          location: pickupLocation.trim(),
-          image: photos[0],
-          gallery: photos,
+        title: title.trim(),
+        category,
+        priceDaily: parsedPrice,
+        year: parsedYear,
+        fuel: 'Diesel',
+        transmission: 'Manual',
+        provider: user.providerName,
+        location: pickupLocation.trim(),
+        image: photos[0],
+        gallery: photos,
+        minDays: parsedMinDays,
+        insurance,
+        pricingRules: {
+          weekendSurcharge: 0,
+          weeklyDiscount: 0,
           minDays: parsedMinDays,
-          insurance,
-          providerBadges: ['Verified provider', 'Insured', 'Response in 15 min'],
-          verification: { idVerified: true, insured: true, businessVerified: true },
-          pricingRules: { weekendSurcharge: 10, weeklyDiscount: 8, minDays: parsedMinDays, cancellation: 'Free cancellation up to 48 hours' },
-          availabilityNote: 'Available for immediate bookings with instant confirmation.',
+          cancellation: 'Contact provider to confirm cancellation terms',
+        },
       });
     } catch (error) {
       submissionError = true;

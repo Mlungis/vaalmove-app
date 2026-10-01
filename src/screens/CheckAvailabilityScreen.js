@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, FlatList } from 'react-native';
+import { Alert } from '../lib/alerts';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import DateRangeCalendar from '../components/DateRangeCalendar';
@@ -41,14 +42,16 @@ export default function CheckAvailabilityScreen({ navigation, route }) {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
   }
 
-  const blockedDates = availability.blockedDates || [];
-  const hasConflict = blockedDates.some((dateKey) => {
-    if (!(startDate && endDate)) return false;
-    const selectedStart = new Date(startDate).setHours(0, 0, 0, 0);
-    const selectedEnd = new Date(endDate).setHours(0, 0, 0, 0);
-    const compareDate = new Date(dateKey).setHours(0, 0, 0, 0);
-    return compareDate >= selectedStart && compareDate <= selectedEnd;
-  });
+  const dateKey = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+  const selectedStart = dateKey(startDate);
+  const selectedEnd = dateKey(endDate);
+  const hasConflict = Boolean(selectedStart && selectedEnd && availability.blockedRanges?.some((range) => (
+    range.start <= selectedEnd && range.end >= selectedStart
+  )));
 
   function handleBook() {
     if (hasConflict) {

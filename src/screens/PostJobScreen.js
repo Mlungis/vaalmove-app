@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { Alert } from '../lib/alerts';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import Chip from '../components/Chip';
@@ -37,7 +38,7 @@ export default function PostJobScreen({ navigation }) {
       Alert.alert('Could not post job', 'We could not save your job post. Check your connection and try again.');
       return;
     }
-    Alert.alert('Job posted', 'Local providers can now see your job and photos, and send quotes.', [
+    Alert.alert('Job request saved', 'Your transport request and photos have been saved to your account.', [
       { text: 'OK', onPress: () => navigation.getParent()?.navigate('Bookings') },
     ]);
   }
@@ -46,7 +47,7 @@ export default function PostJobScreen({ navigation }) {
     <View style={styles.container}>
       <Header title="Post a Job" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 32 }}>
-        <Text style={styles.subtitle}>Tell us what transport you need and providers near you will send quotes.</Text>
+        <Text style={styles.subtitle}>Save the transport details you need so you can keep your request and photos together.</Text>
 
         <Text style={styles.label}>Job Type</Text>
         <View style={styles.chipRow}>
@@ -118,7 +119,7 @@ export default function PostJobScreen({ navigation }) {
 
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={16} color={colors.skyBottom} />
-          <Text style={styles.infoText}>Providers typically respond within a few hours with quotes you can compare.</Text>
+          <Text style={styles.infoText}>Your request will appear under Job Posts in My Bookings.</Text>
         </View>
       </ScrollView>
     </View>

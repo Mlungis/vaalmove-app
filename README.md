@@ -1,81 +1,117 @@
-# LexRidesZA — mobile app (Expo / React Native)
+# LexRidesZA
 
-A real native app: onboarding, login, signup, and the home dashboard,
-matching the liquid-glass design from the original screens.
+LexRidesZA is an Expo / React Native vehicle-rental app backed by Supabase.
+Supabase provides authentication, Postgres data and row-level security, realtime
+updates, and image storage. Paystack checkout is handled by authenticated
+Supabase Edge Functions; secret payment credentials stay on the server.
 
-## Run it on your phone
+## Run the app
 
-1. Install [Node.js](https://nodejs.org) if you don't have it.
-2. Install the **Expo Go** app on your phone (App Store / Play Store).
-3. In this folder:
+1. Install Node.js and the Expo Go app.
+2. Copy `.env.example` to `.env.local` and set the Supabase project URL and
+   publishable key. Optionally set `EXPO_PUBLIC_SUPPORT_PHONE` and
+   `EXPO_PUBLIC_SUPPORT_EMAIL` to enable the matching support contact buttons.
+3. Install dependencies and start Expo:
 
    ```bash
    npm install
    npx expo start
    ```
 
-4. Scan the QR code that appears with:
-   - **iPhone**: the Camera app
-   - **Android**: the Expo Go app's built-in scanner
+4. Scan the QR code with Expo Go, or run `npx expo start --web`.
 
-The app opens straight into Expo Go on your phone — no build step, no
-Xcode/Android Studio needed for day-to-day work.
+Never put a Supabase service-role key or Paystack secret key in an Expo
+`EXPO_PUBLIC_*` variable. `.env.local` is ignored by Git.
 
-## Run it in a simulator (optional)
+## Configure the Supabase backend
 
-```bash
-npx expo start --ios       # requires Xcode (Mac only)
-npx expo start --android   # requires Android Studio + an emulator
-```
+1. Create a Supabase project. In **Project Settings → API**, copy the project
+   URL and publishable key into `.env.local`:
 
-## What's built
+   ```dotenv
+   EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+   EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+   ```
 
-- **Onboarding** — sky gradient, frosted glass fleet panel, brand copy
-- **Login** — glass auth card, validation, password show/hide
-- **Signup** — glass auth card, full field set, terms checkbox, validation
-- **Home** — greeting, search bar, 2-column action grid, bottom tab bar
+2. In the Supabase SQL Editor, run `supabase/schema.sql` for a new database.
+   For an existing app database, run the SQL migration files in
+   `supabase/migrations/` in filename order, or authenticate and run
+   `npx supabase db push`. The schema enables row-level
+   security, creates the required tables and storage buckets, calculates
+   booking prices in the database, and creates booking conversations and
+   notifications. Signup saves the user's name and phone to their profile.
 
-`Bookings`, `Messages`, and `Profile` tabs are wired up in the navigator
-as placeholders, ready for you to build out next.
+3. Install the Supabase CLI, authenticate, and link this folder to the project:
 
-## Project structure
+   ```bash
+   supabase login
+   supabase link --project-ref YOUR_PROJECT_REF
+   ```
 
-```
-App.js                      entry point, loads fonts, sets up navigation
-app.json                    Expo config (name, bundle id, splash colour)
-src/
-  theme/                    colors, spacing, font names — single source of truth
-  components/
-    GradientBackground.js   sky gradient + soft liquid blobs
-    GlassView.js            real frosted-glass surface (expo-blur)
-    Buttons.js              primary / ghost buttons
-    TextField.js            labeled input with icon + error state
-    DashboardCard.js        pastel action card for the home grid
-  screens/
-    OnboardingScreen.js
-    LoginScreen.js
-    SignupScreen.js
-    HomeScreen.js
-    PlaceholderScreen.js    generic "coming soon" screen for stub tabs
-  navigation/
-    RootNavigator.js        Onboarding → Login/Signup → Main (stack)
-    MainTabs.js              Home / Bookings / Messages / Profile (tabs)
-```
+4. Add your Paystack **secret test key** as an Edge Function secret and deploy
+   the server functions:
 
-## Swapping in a real backend
+   ```bash
+   supabase secrets set PAYSTACK_SECRET_KEY=sk_test_your_key
+   supabase functions deploy paystack-transaction
+   supabase functions deploy paystack-webhook --no-verify-jwt
+   supabase functions deploy delete-account
+   ```
 
-`LoginScreen` and `SignupScreen` currently validate locally and then
-navigate straight into the app (`navigation.reset(...)` to `Main`).
-Replace `handleLogin` / `handleSignup` with your actual auth calls
-(e.g. a fetch to your ASP.NET Core API) and only navigate on success.
+   Supabase provides the function runtime values
+   `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+   Do not manually expose or bundle `SUPABASE_SERVICE_ROLE_KEY`.
 
-### Recommended backend
+5. In the Paystack dashboard, configure the webhook URL:
 
-For this Expo app, Supabase is the quickest production-ready option: it
-provides Postgres, email/phone authentication, vehicle photo storage, and
-realtime booking/tracking updates in one service. Keep the Supabase anon key
-in Expo public configuration and enforce access with Row Level Security.
+   ```text
+   https://YOUR_PROJECT_REF.supabase.co/functions/v1/paystack-webhook
+   ```
 
-Firebase is also suitable if realtime mobile sync is the priority. An
-ASP.NET Core API with PostgreSQL is the better choice if the project already
-needs custom business rules, payment webhooks, or an existing .NET team.
+   The webhook verifies Paystack's HMAC signature and then independently
+   verifies the transaction amount, currency, reference, and booking metadata
+   before marking a booking paid. The authenticated payment function performs
+   the same checks when the customer returns from checkout.
+
+6. In Supabase **Authentication → URL Configuration**, allow the app callback
+   URLs for your builds, including:
+
+   ```text
+   lexridesza://auth/callback
+   lexridesza://payment/callback
+   ```
+
+   Enable email/password sign-in. To use Google, Apple, or Facebook, enable
+   each provider in Supabase and add its provider credentials and redirect URI.
+
+## Backend functionality
+
+- Email/password signup, login, password reset, OAuth session handling, and
+  account deletion.
+- Profile and preference persistence, saved locations, favorites, and job
+  posts.
+- Published vehicle listings, provider-owned images, features, and availability.
+- Server-priced rental bookings with overlap protection and provider/renter
+  authorization.
+- Paystack initialization, signed webhooks, server-side transaction
+  verification, and payment-confirmed bookings.
+- Booking-linked conversations, message read states, booking notifications,
+  and realtime refreshes.
+
+## Payment and booking smoke test
+
+Use Paystack test credentials until the complete checkout flow has been
+verified. Create two accounts, publish a vehicle from one, and book it from the
+other. Confirm that:
+
+- the database-generated booking total is based on the vehicle price and rental
+  dates, not a client-submitted amount;
+- an overlapping booking is rejected;
+- a successful Paystack test transaction changes the booking to `confirmed`
+  and `paid`;
+- a failed or cancelled transaction does not mark the booking as paid; and
+- each booking creates a conversation between its renter and provider.
+
+Deploying this code does not create a Supabase project or configure external
+credentials. Those steps must be completed in your own Supabase and Paystack
+accounts before the live backend can accept users or payments.

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { Alert } from '../lib/alerts';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import { colors, fonts, radius, shadow } from '../theme';
@@ -7,43 +8,55 @@ import { colors, fonts, radius, shadow } from '../theme';
 const FAQS = [
   { q: 'How do I cancel a booking?', a: 'Go to My Bookings, open the upcoming booking, and tap Cancel. Cancellation policies vary by provider.' },
   { q: 'How do I become a provider?', a: 'Open your Profile and tap Provider Dashboard, then Add New Listing to list a vehicle for rent.' },
-  { q: 'What payment methods are accepted?', a: 'Cards, Instant EFT, bank transfer, and LexRidesZA wallet balance are all supported.' },
-  { q: 'Is insurance included?', a: 'Most listings include basic insurance and roadside assistance — check the vehicle details page for specifics.' },
+  { q: 'What payment methods are accepted?', a: 'Checkout is handled securely by Paystack. The payment options available depend on what is enabled for your account in Paystack.' },
+  { q: 'Is insurance included?', a: 'Coverage differs by vehicle. Check the listing details or message the provider to confirm insurance and mileage terms.' },
 ];
+
+const SUPPORT_PHONE = process.env.EXPO_PUBLIC_SUPPORT_PHONE?.trim();
+const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL?.trim();
 
 export default function HelpSupportScreen({ navigation }) {
   const [openIndex, setOpenIndex] = useState(null);
 
   function callSupport() {
-    Linking.openURL('tel:+27110000000').catch(() =>
+    Linking.openURL(`tel:${SUPPORT_PHONE}`).catch(() =>
       Alert.alert('Unavailable', 'Calling is not available on this device.')
     );
   }
 
   function emailSupport() {
-    Linking.openURL('mailto:support@lexridesza.co.za').catch(() =>
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() =>
       Alert.alert('Unavailable', 'Email is not available on this device.')
     );
   }
+
+  const supportChannels = [
+    ...(SUPPORT_PHONE ? [{ label: 'Call us', icon: 'call-outline', onPress: callSupport }] : []),
+    ...(SUPPORT_EMAIL ? [{ label: 'Email us', icon: 'mail-outline', onPress: emailSupport }] : []),
+    {
+      label: 'Messages',
+      icon: 'chatbubble-outline',
+      onPress: () => navigation.getParent()?.navigate('Messages'),
+    },
+  ];
 
   return (
     <View style={styles.container}>
       <Header title="Help & Support" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 32 }}>
         <View style={styles.contactRow}>
-          <TouchableOpacity style={[styles.contactCard, shadow.soft]} onPress={callSupport}>
-            <Ionicons name="call-outline" size={20} color={colors.skyBottom} />
-            <Text style={styles.contactLabel}>Call us</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.contactCard, shadow.soft]} onPress={emailSupport}>
-            <Ionicons name="mail-outline" size={20} color={colors.skyBottom} />
-            <Text style={styles.contactLabel}>Email us</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.contactCard, shadow.soft]} onPress={() => navigation.getParent()?.navigate('Messages')}>
-            <Ionicons name="chatbubble-outline" size={20} color={colors.skyBottom} />
-            <Text style={styles.contactLabel}>Live chat</Text>
-          </TouchableOpacity>
+          {supportChannels.map((channel) => (
+            <TouchableOpacity key={channel.label} style={[styles.contactCard, shadow.soft]} onPress={channel.onPress}>
+              <Ionicons name={channel.icon} size={20} color={colors.skyBottom} />
+              <Text style={styles.contactLabel}>{channel.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
+        {!SUPPORT_PHONE && !SUPPORT_EMAIL ? (
+          <Text style={styles.contactNote}>
+            Phone and email support contacts are not configured. Messages are available for existing conversations.
+          </Text>
+        ) : null}
 
         <Text style={styles.sectionLabel}>Frequently asked questions</Text>
         {FAQS.map((f, i) => (
@@ -65,6 +78,7 @@ const styles = StyleSheet.create({
   contactRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
   contactCard: { flex: 1, backgroundColor: colors.surfaceAlt, borderRadius: radius.md, paddingVertical: 16, alignItems: 'center', gap: 8 },
   contactLabel: { fontFamily: fonts.bodySemi, fontSize: 12, color: colors.ink },
+  contactNote: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, marginTop: 8 },
   sectionLabel: { fontFamily: fonts.bodySemi, fontSize: 12.5, color: colors.muted, marginTop: 22, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.4 },
   faqCard: { backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 14, marginBottom: 10 },
   faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

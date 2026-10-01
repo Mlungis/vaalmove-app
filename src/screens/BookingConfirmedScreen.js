@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Share, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { Alert } from '../lib/alerts';
 import * as Calendar from 'expo-calendar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
+import { shareMessage } from '../lib/share';
 
 export default function BookingConfirmedScreen({ navigation, route }) {
   const { getVehicleById, bookings } = useAppContext();
@@ -15,16 +17,54 @@ export default function BookingConfirmedScreen({ navigation, route }) {
   const isPending = latest.paymentStatus !== 'paid' || latest.rawStatus === 'pending';
 
   function handleShare() {
-    Share.share({ message: `Booked ${vehicle.title} on LexRidesZA — booking ${latest.code}.` }).catch(() => {});
+    shareMessage('LexRidesZA booking', `Booked ${vehicle.title} on LexRidesZA — booking ${latest.code}.`);
+  }
+
+  function escapeCalendarText(value) {
+    return String(value || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/\n/g, '\\n')
+      .replace(/,/g, '\\,')
+      .replace(/;/g, '\\;');
+  }
+
+  function calendarDate(value) {
+    return new Date(value).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   }
 
   async function handleCalendar() {
-    if (Platform.OS === 'web') {
-      Alert.alert('Calendar unavailable', 'Calendar reminders can be added from the mobile app.');
-      return;
-    }
     if (!latest.pickup) {
       Alert.alert('Calendar unavailable', 'This booking does not have a pickup time yet.');
+      return;
+    }
+    if (Platform.OS === 'web') {
+      const endDate = latest.dropoff || new Date(new Date(latest.pickup).getTime() + 60 * 60 * 1000).toISOString();
+      const event = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//LexRidesZA//Booking Reminder//EN',
+        'BEGIN:VEVENT',
+        `UID:${escapeCalendarText(bookingId || latest.id)}@lexridesza`,
+        `DTSTAMP:${calendarDate(new Date().toISOString())}`,
+        `DTSTART:${calendarDate(latest.pickup)}`,
+        `DTEND:${calendarDate(endDate)}`,
+        `SUMMARY:${escapeCalendarText(`LexRidesZA pickup — ${vehicle.title || 'vehicle'}`)}`,
+        `LOCATION:${escapeCalendarText(vehicle.location || latest.location)}`,
+        `DESCRIPTION:${escapeCalendarText(`Booking ${latest.code || bookingId || ''}`)}`,
+        'BEGIN:VALARM',
+        'TRIGGER:-PT1H',
+        'ACTION:DISPLAY',
+        'DESCRIPTION:Vehicle pickup reminder',
+        'END:VALARM',
+        'END:VEVENT',
+        'END:VCALENDAR',
+      ].join('\r\n');
+      const url = URL.createObjectURL(new Blob([event], { type: 'text/calendar;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `lexridesza-booking-${latest.code || bookingId || 'reminder'}.ics`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       return;
     }
     const permission = await Calendar.requestCalendarPermissionsAsync();

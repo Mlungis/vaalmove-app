@@ -9,10 +9,19 @@ function callbackUrl() {
     : Linking.makeRedirectUri({ scheme: 'lexridesza', path: 'payment/callback' });
 }
 
-export async function payForBooking({ amount, email, bookingId }) {
+export async function verifyPaystackPayment(reference) {
+  const verification = await supabase.functions.invoke('paystack-transaction', {
+    body: { action: 'verify', reference },
+  });
+  if (verification.error) throw verification.error;
+  if (!verification.data?.paid) throw new Error('Paystack could not verify this payment.');
+  return verification.data;
+}
+
+export async function payForBooking({ bookingId }) {
   const redirectTo = callbackUrl();
   const { data, error } = await supabase.functions.invoke('paystack-transaction', {
-    body: { action: 'initialize', amount: Math.round(Number(amount) * 100), email, bookingId, callbackUrl: redirectTo },
+    body: { action: 'initialize', bookingId, callbackUrl: redirectTo },
   });
   if (error) throw error;
   if (!data?.authorization_url || !data?.reference) throw new Error('Paystack did not return a checkout session.');
@@ -25,10 +34,5 @@ export async function payForBooking({ amount, email, bookingId }) {
   if (result.type !== 'success' || !result.url) throw new Error('Payment checkout was cancelled.');
   const callback = new URL(result.url);
   const reference = callback.searchParams.get('reference') || callback.searchParams.get('trxref') || data.reference;
-  const verification = await supabase.functions.invoke('paystack-transaction', {
-    body: { action: 'verify', reference },
-  });
-  if (verification.error) throw verification.error;
-  if (!verification.data?.paid) throw new Error('Paystack could not verify this payment.');
-  return verification.data;
+  return verifyPaystackPayment(reference);
 }

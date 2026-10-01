@@ -7,27 +7,18 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-  Alert,
 } from 'react-native';
+import { Alert } from '../lib/alerts';
 import { Ionicons } from '@expo/vector-icons';
 import GradientBackground from '../components/GradientBackground';
 import GlassView from '../components/GlassView';
 import TextField from '../components/TextField';
 import { PrimaryButton } from '../components/Buttons';
 import { colors, fonts, radius } from '../theme';
-import { useAppContext } from '../AppContext';
 import { supabase } from '../lib/supabase';
 import { startOAuth } from '../lib/oauth';
 
-function initialsFor(name) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
 export default function SignupScreen({ navigation }) {
-  const { updateUser } = useAppContext();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -53,39 +44,37 @@ export default function SignupScreen({ navigation }) {
     setErrors(next);
     if (Object.keys(next).length === 0) {
       setLoading(true);
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: {
-            full_name: fullName.trim(),
-            phone: phone.trim(),
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+              phone: phone.trim(),
+            },
           },
-        },
-      });
-      setLoading(false);
+        });
 
-      if (error) {
-        setErrors({ form: error.message });
-        return;
-      }
+        if (error) {
+          setErrors({ form: error.message });
+          return;
+        }
 
-      updateUser({
-        name: fullName.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        initials: initialsFor(fullName),
-      });
+        if (!data.session) {
+          Alert.alert('Check your email', 'Confirm your email address before logging in.', [
+            { text: 'OK', onPress: () => navigation.navigate('Login') },
+          ]);
+          return;
+        }
 
-      if (!data.session) {
-        Alert.alert('Check your email', 'Confirm your email address before logging in.', [
-          { text: 'OK', onPress: () => navigation.navigate('Login') },
-        ]);
-        return;
-      }
-
-      if (data.user) {
-        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+        if (data.user) {
+          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+        }
+      } catch (signupError) {
+        setErrors({ form: signupError?.message || 'Could not create your account. Check your connection and try again.' });
+      } finally {
+        setLoading(false);
       }
     }
   };

@@ -24,7 +24,7 @@ export default function SearchResultsScreen({ navigation, route }) {
         <TouchableOpacity style={styles.searchBox} onPress={() => navigation.navigate('SearchFilter')}>
           <Ionicons name="search" size={15} color={colors.muted} />
           <Text style={styles.searchText} numberOfLines={1}>
-            {activeCategory ? activeCategory.label : 'All vehicles'} · {filters.location || 'Any location'}
+            {filters.query || (activeCategory ? activeCategory.label : 'All vehicles')} · {filters.location || 'Any location'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.filterBtn} onPress={() => navigation.navigate('SearchFilter')}>

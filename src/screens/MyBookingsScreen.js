@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { Alert } from '../lib/alerts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Chip from '../components/Chip';
@@ -58,7 +59,7 @@ export default function MyBookingsScreen({ navigation }) {
             <EmptyState
               icon="briefcase-outline"
               title="No job posts yet"
-              subtitle="Post a job and providers near you will send quotes."
+              subtitle="Save transport requests here to keep their details and photos together."
             />
           ) : (
             postedJobs.map((j) => (

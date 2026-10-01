@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Share, Alert, Image, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, Linking } from 'react-native';
+import { Alert } from '../lib/alerts';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import EmptyState from '../components/EmptyState';
 import { useAppContext } from '../AppContext';
 import { colors, fonts, radius, shadow } from '../theme';
+import { shareMessage } from '../lib/share';
 
 let MapView;
 let Marker;
@@ -68,7 +70,7 @@ function WebMap({ tracking, onOpenMap }) {
 }
 
 export default function VehicleTrackingScreen({ navigation, route }) {
-  const { getVehicleById, getVehicleTracking, bookings } = useAppContext();
+  const { getVehicleById, getVehicleTracking, bookings, startVehicleConversation } = useAppContext();
   const requestedId = route?.params?.id || route?.params?.vehicleId;
   const id = requestedId || bookings.find((booking) => ['upcoming', 'active'].includes(booking.status))?.vehicleId;
   const vehicle = getVehicleById(id) || {};
@@ -78,7 +80,7 @@ export default function VehicleTrackingScreen({ navigation, route }) {
     return (
       <View style={styles.container}>
         <Header title="Live Tracking" subtitle={vehicle.title || 'Vehicle'} onBack={() => navigation.goBack()} />
-        <EmptyState icon="location-outline" title="Tracking is not available" subtitle="Live location updates will appear here when the provider starts tracking this booking." />
+        <EmptyState icon="location-outline" title="Tracking is not available" subtitle="Live location sharing is not available yet. Contact your provider for trip updates." />
       </View>
     );
   }
@@ -91,18 +93,37 @@ export default function VehicleTrackingScreen({ navigation, route }) {
   };
 
   function handleShare() {
-    Share.share({
-      message: `${vehicle.title} is ${tracking.status.toLowerCase()} and expected in ${tracking.eta}.`,
-    }).catch(() => {});
+    shareMessage(
+      'LexRidesZA trip update',
+      `${vehicle.title} is ${tracking.status.toLowerCase()}${tracking.eta ? ` and expected in ${tracking.eta}` : ''}.`,
+    );
   }
 
-  function handleCallDriver() {
-    Alert.alert('Driver contact', `${tracking.driverName} is on the way and should be with you in ${tracking.eta}.`);
+  async function handleCallDriver() {
+    try {
+      if (!tracking.providerPhone) {
+        const conversationId = await startVehicleConversation(id);
+        if (conversationId) {
+          navigation.getParent()?.navigate('Messages', {
+            screen: 'ChatThread',
+            params: { id: conversationId },
+          });
+        }
+        return;
+      }
+      await Linking.openURL(`tel:${tracking.providerPhone}`);
+    } catch (error) {
+      Alert.alert('Could not contact provider', error?.message || 'Please try again.');
+    }
   }
 
-  function handleOpenMap() {
+  async function handleOpenMap() {
     const { latitude, longitude } = tracking.vehicleLocation;
-    Linking.openURL(`https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=14/${latitude}/${longitude}`);
+    try {
+      await Linking.openURL(`https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=14/${latitude}/${longitude}`);
+    } catch (error) {
+      Alert.alert('Could not open map', error?.message || 'Please try again.');
+    }
   }
 
   return (
@@ -132,11 +153,11 @@ export default function VehicleTrackingScreen({ navigation, route }) {
         <View style={styles.metricRow}>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>ETA</Text>
-            <Text style={styles.metricValue}>{tracking.eta}</Text>
+            <Text style={styles.metricValue}>{tracking.eta || 'Not available'}</Text>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Speed</Text>
-            <Text style={styles.metricValue}>{tracking.speed}</Text>
+            <Text style={styles.metricValue}>{tracking.speed || 'Not available'}</Text>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Driver</Text>
@@ -150,7 +171,7 @@ export default function VehicleTrackingScreen({ navigation, route }) {
         </View>
         <View style={styles.routeInfo}>
           <Text style={styles.routeLabel}>Destination</Text>
-          <Text style={styles.routeText}>{tracking.dropoff}</Text>
+          <Text style={styles.routeText}>{tracking.dropoff || 'Not provided'}</Text>
         </View>
 
         <View style={styles.actionRow}>
@@ -158,7 +179,11 @@ export default function VehicleTrackingScreen({ navigation, route }) {
             <Ionicons name="share-outline" size={16} color={colors.skyBottom} />
             <Text style={styles.secondaryBtnText}>Share</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('DriverDashboard')}>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={handleCallDriver}>
+            <Ionicons name={tracking.providerPhone ? 'call-outline' : 'chatbubble-outline'} size={16} color={colors.skyBottom} />
+            <Text style={styles.secondaryBtnText}>{tracking.providerPhone ? 'Call provider' : 'Message provider'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.getParent()?.navigate('Home', { screen: 'DriverDashboard' })}>
             <Ionicons name="analytics-outline" size={16} color="#fff" />
             <Text style={styles.primaryBtnText}>Dashboard</Text>
           </TouchableOpacity>
@@ -241,9 +266,9 @@ const styles = StyleSheet.create({
   routeInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.hairline, paddingTop: 10, marginTop: 6 },
   routeLabel: { fontFamily: fonts.body, fontSize: 12, color: colors.muted },
   routeText: { fontFamily: fonts.bodySemi, fontSize: 12, color: colors.ink, flex: 1, textAlign: 'right' },
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
-  secondaryBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.blueBg, borderRadius: radius.md, paddingVertical: 12 },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
+  secondaryBtn: { flexBasis: '40%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.blueBg, borderRadius: radius.md, paddingVertical: 12 },
   secondaryBtnText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.skyBottom },
-  primaryBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.skyBottom, borderRadius: radius.md, paddingVertical: 12 },
+  primaryBtn: { flexBasis: '40%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.skyBottom, borderRadius: radius.md, paddingVertical: 12 },
   primaryBtnText: { fontFamily: fonts.bodySemi, fontSize: 13, color: '#fff' },
 });

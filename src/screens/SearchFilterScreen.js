@@ -49,6 +49,18 @@ export default function SearchFilterScreen({ navigation, route }) {
 
       <ScrollView contentContainerStyle={{ padding: 18 }}>
         <View style={styles.searchBox}>
+          <Ionicons name="search" size={16} color={colors.muted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Vehicle or provider"
+            placeholderTextColor={colors.muted}
+            value={local.query}
+            onChangeText={(query) => apply({ query })}
+            returnKeyType="search"
+          />
+        </View>
+
+        <View style={styles.searchBox}>
           <Ionicons name="location-outline" size={16} color={colors.muted} />
           <TextInput
             style={styles.searchInput}
@@ -154,6 +166,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: colors.surfaceAlt, padding: 13, borderRadius: radius.md,
     borderWidth: 1, borderColor: colors.hairline,
+    marginBottom: 10,
   },
   searchInput: { flex: 1, fontFamily: fonts.body, fontSize: 14, color: colors.ink },
   dateText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.ink },

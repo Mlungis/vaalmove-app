@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Platform } from 'react-native';
+import { Alert } from '../lib/alerts';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts, radius } from '../theme';
@@ -9,25 +10,29 @@ const MAX_PHOTOS = 6;
 export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, error }) {
   async function pickFromLibrary() {
     try {
-    if (photos.length >= max) {
-      Alert.alert('Limit reached', `You can add up to ${max} photos.`);
-      return;
-    }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow photo library access to add pictures.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
-      quality: 0.7,
-      allowsMultipleSelection: true,
-      selectionLimit: max - photos.length,
-    });
-    if (!result.canceled && result.assets?.length) {
-      const uris = result.assets.map((a) => a.uri).filter(Boolean);
-      onChange([...photos, ...uris].slice(0, max));
-    }
+      if (photos.length >= max) {
+        Alert.alert('Limit reached', `You can add up to ${max} photos.`);
+        return;
+      }
+
+      if (Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Permission needed', 'Allow photo library access to add pictures.');
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+        allowsMultipleSelection: true,
+        selectionLimit: max - photos.length,
+      });
+      if (!result.canceled && result.assets?.length) {
+        const uris = result.assets.map((asset) => asset.uri).filter(Boolean);
+        onChange([...photos, ...uris].slice(0, max));
+      }
     } catch (error) {
       Alert.alert('Could not add photo', error?.message || 'The photo picker could not be opened.');
     }
@@ -35,22 +40,22 @@ export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, e
 
   async function takePhoto() {
     try {
-    if (photos.length >= max) {
-      Alert.alert('Limit reached', `You can add up to ${max} photos.`);
-      return;
-    }
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow camera access to take a photo.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      onChange([...photos, result.assets[0].uri].slice(0, max));
-    }
+      if (photos.length >= max) {
+        Alert.alert('Limit reached', `You can add up to ${max} photos.`);
+        return;
+      }
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Allow camera access to take a photo.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        onChange([...photos, result.assets[0].uri].slice(0, max));
+      }
     } catch (error) {
       Alert.alert('Could not take photo', error?.message || 'The camera could not be opened.');
     }
