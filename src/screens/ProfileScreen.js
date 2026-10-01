@@ -1,6 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Alert } from '../lib/alerts';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../components/Avatar';
@@ -10,16 +9,24 @@ import { useAppContext } from '../AppContext';
 
 export default function ProfileScreen({ navigation }) {
   const { user, favoriteVehicles, bookings, signOut } = useAppContext();
+  const [logoutVisible, setLogoutVisible] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
 
   function handleLogout() {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: () => signOut(),
-      },
-    ]);
+    setLogoutError('');
+    setLogoutVisible(true);
+  }
+
+  async function confirmLogout() {
+    setLoggingOut(true);
+    setLogoutError('');
+    try {
+      await signOut();
+    } catch (error) {
+      setLogoutError(error?.message || 'Could not log out. Please try again.');
+      setLoggingOut(false);
+    }
   }
 
   const upcomingCount = bookings.filter((b) => b.status === 'upcoming').length;
@@ -78,6 +85,43 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </ScrollView>
+      <Modal
+        visible={logoutVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!loggingOut) setLogoutVisible(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmationCard}>
+            <Text style={styles.confirmationTitle}>Log out?</Text>
+            <Text style={styles.confirmationText}>You will need to sign in again to access your account.</Text>
+            {logoutError ? <Text accessibilityRole="alert" style={styles.logoutError}>{logoutError}</Text> : null}
+            <View style={styles.confirmationActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setLogoutVisible(false)}
+                disabled={loggingOut}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={[styles.confirmButton, loggingOut && styles.disabledButton]}
+                onPress={confirmLogout}
+                disabled={loggingOut}
+              >
+                {loggingOut ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Log out</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -108,4 +152,15 @@ const styles = StyleSheet.create({
     alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8,
   },
   logoutText: { color: colors.danger, fontFamily: fonts.bodySemi },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(10,20,35,0.55)', justifyContent: 'center', padding: 24 },
+  confirmationCard: { backgroundColor: colors.surfaceAlt, borderRadius: radius.lg, padding: 22 },
+  confirmationTitle: { color: colors.ink, fontFamily: fonts.displaySemi, fontSize: 19 },
+  confirmationText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, marginTop: 8 },
+  logoutError: { color: colors.danger, fontFamily: fonts.bodySemi, fontSize: 12, lineHeight: 18, marginTop: 12 },
+  confirmationActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 22 },
+  cancelButton: { borderRadius: radius.sm, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.surface },
+  cancelButtonText: { color: colors.inkSoft, fontFamily: fonts.bodySemi, fontSize: 13 },
+  confirmButton: { minWidth: 92, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.danger },
+  disabledButton: { opacity: 0.7 },
+  confirmButtonText: { color: '#FFFFFF', fontFamily: fonts.bodySemi, fontSize: 13 },
 });

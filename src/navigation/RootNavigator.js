@@ -33,8 +33,6 @@ export default function RootNavigator() {
 
   return (
     <Stack.Navigator
-      key={session ? 'authenticated' : 'guest'}
-      initialRouteName={session ? 'Main' : 'Onboarding'}
       screenOptions={({ navigation }) => ({
         headerShown: true,
         headerTransparent: true,
@@ -44,12 +42,17 @@ export default function RootNavigator() {
         headerStyle: { backgroundColor: 'transparent' },
       })}
     >
-      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Signup" component={SignupScreen} />
-      <Stack.Screen name="LegalInformation" component={LegalInformationScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-      <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+      {session ? (
+        <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+      ) : (
+        <>
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen name="LegalInformation" component={LegalInformationScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        </>
+      )}
     </Stack.Navigator>
   );
 }

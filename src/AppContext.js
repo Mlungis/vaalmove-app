@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import { supabase } from './lib/supabase';
 import { verifyPaystackPayment } from './lib/payments';
+import AuthSuccessOverlay from './components/AuthSuccessOverlay';
 
 const AppContext = createContext(null);
 
@@ -182,9 +183,20 @@ export function AppProvider({ children }) {
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [bookingDraft, setBookingDraft] = useState(null);
+  const [authSuccess, setAuthSuccess] = useState(null);
+  const authSuccessTimer = useRef(null);
 
   const report = useCallback((message) => {
     if (message) setError(message);
+  }, []);
+
+  const showAuthSuccess = useCallback((title, message) => {
+    if (authSuccessTimer.current) clearTimeout(authSuccessTimer.current);
+    setAuthSuccess({ title, message, key: Date.now() });
+    authSuccessTimer.current = setTimeout(() => {
+      setAuthSuccess(null);
+      authSuccessTimer.current = null;
+    }, 2300);
   }, []);
 
   function listingErrorMessage(error) {
@@ -304,21 +316,34 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
+    let receivedAuthEvent = false;
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      receivedAuthEvent = true;
+      setSession(nextSession);
+      setAuthLoading(false);
+      if (event === 'SIGNED_IN') {
+        showAuthSuccess('Welcome back', 'You’re signed in and ready to go.');
+      }
+    });
     supabase.auth.getSession().then(({ data, error: sessionError }) => {
-      if (!mounted) return;
+      if (!mounted || receivedAuthEvent) return;
       if (sessionError) report(sessionError.message);
       setSession(data.session);
       setAuthLoading(false);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
+    }).catch((sessionError) => {
+      if (!mounted || receivedAuthEvent) return;
+      report(sessionError?.message || 'Unable to restore your session.');
       setAuthLoading(false);
     });
     return () => {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, [report]);
+  }, [report, showAuthSuccess]);
+
+  useEffect(() => () => {
+    if (authSuccessTimer.current) clearTimeout(authSuccessTimer.current);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !session?.user?.id) return undefined;
@@ -960,8 +985,19 @@ export function AppProvider({ children }) {
   }
 
   async function signOut() {
-    const result = await supabase.auth.signOut();
-    if (result.error) report(result.error.message);
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+    if (signOutError) {
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        report(sessionError.message);
+        throw sessionError;
+      }
+      if (data.session) {
+        report(signOutError.message);
+        throw signOutError;
+      }
+    }
+    setSession(null);
   }
 
   async function deleteAccount() {
@@ -976,6 +1012,7 @@ export function AppProvider({ children }) {
 
   const value = {
     session, authLoading, loading, error, refresh: () => loadData(session), clearError: () => setError(null),
+    showAuthSuccess,
     vehicles, getVehicleById, getVehicleAvailability, getVehicleReviews, getVehicleTracking, getDriverDashboard,
     bookings, addBooking, cancelBooking, favorites, favoriteVehicles, toggleFavorite, isFavorite,
     filters, updateFilters, filteredVehicles, conversations, sendMessage, markConversationRead,
@@ -987,7 +1024,12 @@ export function AppProvider({ children }) {
     addVehicleListing, updateVehicleStatus, bookingDraft, setBookingDraft, signOut, deleteAccount,
   };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+      <AuthSuccessOverlay notice={authSuccess} />
+    </AppContext.Provider>
+  );
 }
 
 export function useAppContext() {

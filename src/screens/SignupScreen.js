@@ -8,7 +8,6 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { Alert } from '../lib/alerts';
 import { Ionicons } from '@expo/vector-icons';
 import GradientBackground from '../components/GradientBackground';
 import GlassView from '../components/GlassView';
@@ -18,8 +17,10 @@ import { colors, fonts, radius } from '../theme';
 import { supabase } from '../lib/supabase';
 import { startOAuth } from '../lib/oauth';
 import { PRIVACY_VERSION, TERMS_VERSION } from '../lib/legal';
+import { useAppContext } from '../AppContext';
 
 export default function SignupScreen({ navigation }) {
+  const { showAuthSuccess } = useAppContext();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -66,15 +67,11 @@ export default function SignupScreen({ navigation }) {
         }
 
         if (!data.session) {
-          Alert.alert('Check your email', 'Confirm your email address before logging in.', [
-            { text: 'OK', onPress: () => navigation.navigate('Login') },
-          ]);
+          showAuthSuccess('Account created!', 'Check your email to verify your address, then sign in.');
           return;
         }
 
-        if (data.user) {
-          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-        }
+        showAuthSuccess('Account created!', 'Your LexRidesZA account is ready.');
       } catch (signupError) {
         setErrors({ form: signupError?.message || 'Could not create your account. Check your connection and try again.' });
       } finally {

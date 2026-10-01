@@ -48,7 +48,6 @@ export default function LoginScreen({ navigation }) {
 
       if (data.user) {
         updateUser({ email: email.trim() });
-        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
       }
     }
   };
