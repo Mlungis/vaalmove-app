@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
-import { Alert } from '../lib/alerts';
 import Header from '../components/Header';
 import Chip from '../components/Chip';
 import PhotoPicker from '../components/PhotoPicker';
@@ -20,6 +19,7 @@ export default function AddListingScreen({ navigation }) {
   const [photos, setPhotos] = useState([]);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [submissionMessage, setSubmissionMessage] = useState(null);
 
   async function handleSubmit() {
     const next = {};
@@ -35,11 +35,10 @@ export default function AddListingScreen({ navigation }) {
     setErrors(next);
     if (Object.keys(next).length) return;
 
+    setSubmissionMessage(null);
     setSubmitting(true);
-    let result = null;
-    let submissionError = false;
     try {
-      result = await addVehicleListing({
+      await addVehicleListing({
         title: title.trim(),
         category,
         priceDaily: parsedPrice,
@@ -59,18 +58,17 @@ export default function AddListingScreen({ navigation }) {
           cancellation: 'Contact provider to confirm cancellation terms',
         },
       });
+      setSubmissionMessage({
+        type: 'success',
+        text: 'Your listing was published successfully and is now in Your listings.',
+      });
     } catch (error) {
-      submissionError = true;
-      Alert.alert('Could not publish', error?.message || 'We could not save this listing. Please try again.');
+      setSubmissionMessage({
+        type: 'error',
+        text: error?.message || 'We could not save this listing. Please try again.',
+      });
     } finally {
       setSubmitting(false);
-    }
-    if (result) {
-      Alert.alert('Listing added', 'Your new vehicle is now live for renters to find.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
-    } else if (!submissionError) {
-      Alert.alert('Could not publish', 'We could not save this listing. Check your connection and try again.');
     }
   }
 
@@ -159,12 +157,36 @@ export default function AddListingScreen({ navigation }) {
         />
 
         <View style={{ height: 10 }} />
+        {submissionMessage ? (
+          <View
+            accessibilityRole="alert"
+            style={[
+              styles.submissionMessage,
+              submissionMessage.type === 'success' ? styles.successMessage : styles.failureMessage,
+            ]}
+          >
+            <Text style={[
+              styles.submissionMessageText,
+              submissionMessage.type === 'success' ? styles.successText : styles.failureText,
+            ]}>
+              {submissionMessage.text}
+            </Text>
+          </View>
+        ) : null}
         <PrimaryButton
           label="Publish Listing"
           onPress={handleSubmit}
           loading={submitting}
+          disabled={submissionMessage?.type === 'success'}
           style={{ backgroundColor: colors.skyBottom }}
         />
+        {submissionMessage?.type === 'success' ? (
+          <PrimaryButton
+            label="View my listings"
+            onPress={() => navigation.goBack()}
+            style={{ backgroundColor: colors.skyMid, marginTop: 12 }}
+          />
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -182,5 +204,11 @@ const styles = StyleSheet.create({
   },
   inputError: { borderColor: colors.danger },
   errorText: { color: colors.danger, fontFamily: fonts.bodySemi, fontSize: 11.5, marginTop: 6 },
+  submissionMessage: { borderWidth: 1, borderRadius: radius.md, padding: 12, marginBottom: 12 },
+  successMessage: { backgroundColor: '#EAF7EF', borderColor: '#A9D9B8' },
+  failureMessage: { backgroundColor: '#FDEDED', borderColor: '#E6B2B2' },
+  submissionMessageText: { fontFamily: fonts.bodySemi, fontSize: 13, lineHeight: 19 },
+  successText: { color: '#176B35' },
+  failureText: { color: colors.danger },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
 });

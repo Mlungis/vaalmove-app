@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { Alert } from '../lib/alerts';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,9 +16,13 @@ const TABS = [
   { id: 'jobs', label: 'Job Posts' },
 ];
 
-export default function MyBookingsScreen({ navigation }) {
+export default function MyBookingsScreen({ navigation, route }) {
   const { bookings, getVehicleById, cancelBooking, postedJobs } = useAppContext();
-  const [tab, setTab] = useState('upcoming');
+  const [tab, setTab] = useState(route.params?.tab || 'upcoming');
+
+  useEffect(() => {
+    if (route.params?.tab) setTab(route.params.tab);
+  }, [route.params?.tab]);
 
   const items = tab === 'jobs' ? [] : bookings.filter((b) => b.status === tab);
 

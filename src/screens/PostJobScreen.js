@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
-import { Alert } from '../lib/alerts';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import Chip from '../components/Chip';
@@ -21,26 +20,40 @@ export default function PostJobScreen({ navigation }) {
   const [photos, setPhotos] = useState([]);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [submissionMessage, setSubmissionMessage] = useState(null);
 
   async function handleSubmit() {
     const next = {};
+    const parsedBudget = Number(budget);
     if (!description.trim()) next.description = 'Please describe what you need.';
-    if (!budget.trim()) next.budget = 'Add a budget so providers can quote accurately.';
+    if (!budget.trim() || !Number.isFinite(parsedBudget) || parsedBudget <= 0) next.budget = 'Enter a valid daily budget.';
     if (!dateNeeded.trim()) next.dateNeeded = 'Let providers know when you need it.';
-    if (photos.length === 0) next.photos = 'Add at least one photo of your vehicle.';
     setErrors(next);
     if (Object.keys(next).length) return;
 
+    setSubmissionMessage(null);
     setSubmitting(true);
-    const posted = await addPostedJob({ jobType, description: description.trim(), budget, dateNeeded: dateNeeded.trim(), contact: contact.trim(), photos });
-    setSubmitting(false);
-    if (!posted) {
-      Alert.alert('Could not post job', 'We could not save your job post. Check your connection and try again.');
-      return;
+    try {
+      await addPostedJob({
+        jobType,
+        description: description.trim(),
+        budget: parsedBudget,
+        dateNeeded: dateNeeded.trim(),
+        contact: contact.trim(),
+        photos,
+      });
+      setSubmissionMessage({
+        type: 'success',
+        text: 'Your job request was posted and saved under Job Posts in My Bookings.',
+      });
+    } catch (error) {
+      setSubmissionMessage({
+        type: 'error',
+        text: error?.message || 'We could not save your job request. Please try again.',
+      });
+    } finally {
+      setSubmitting(false);
     }
-    Alert.alert('Job request saved', 'Your transport request and photos have been saved to your account.', [
-      { text: 'OK', onPress: () => navigation.getParent()?.navigate('Bookings') },
-    ]);
   }
 
   return (
@@ -56,11 +69,11 @@ export default function PostJobScreen({ navigation }) {
           ))}
         </View>
 
-        <Text style={styles.label}>Photos of your vehicle</Text>
+        <Text style={styles.label}>Photos (optional)</Text>
         <PhotoPicker
           photos={photos}
-          onChange={(next) => { setPhotos(next); if (errors.photos) setErrors((e) => ({ ...e, photos: null })); }}
-          error={errors.photos}
+          onChange={setPhotos}
+          required={false}
         />
 
         <Text style={styles.label}>Description</Text>
@@ -84,7 +97,7 @@ export default function PostJobScreen({ navigation }) {
             placeholderTextColor={colors.muted}
             value={budget}
             onChangeText={(t) => { setBudget(t); if (errors.budget) setErrors((e) => ({ ...e, budget: null })); }}
-            keyboardType="number-pad"
+            keyboardType="decimal-pad"
           />
         </View>
         {errors.budget ? <Text style={styles.errorText}>{errors.budget}</Text> : null}
@@ -114,8 +127,32 @@ export default function PostJobScreen({ navigation }) {
           label="Post Job"
           onPress={handleSubmit}
           loading={submitting}
+          disabled={submissionMessage?.type === 'success'}
           style={{ backgroundColor: colors.skyBottom }}
         />
+        {submissionMessage ? (
+          <View
+            accessibilityRole="alert"
+            style={[
+              styles.submissionMessage,
+              submissionMessage.type === 'success' ? styles.successMessage : styles.failureMessage,
+            ]}
+          >
+            <Text style={[
+              styles.submissionMessageText,
+              submissionMessage.type === 'success' ? styles.successText : styles.failureText,
+            ]}>
+              {submissionMessage.text}
+            </Text>
+          </View>
+        ) : null}
+        {submissionMessage?.type === 'success' ? (
+          <PrimaryButton
+            label="View Job Posts"
+            onPress={() => navigation.getParent()?.navigate('Bookings', { tab: 'jobs' })}
+            style={{ backgroundColor: colors.skyMid, marginTop: 12 }}
+          />
+        ) : null}
 
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={16} color={colors.skyBottom} />
@@ -138,6 +175,12 @@ const styles = StyleSheet.create({
   inputError: { borderColor: colors.danger },
   textarea: { height: 100, textAlignVertical: 'top' },
   errorText: { color: colors.danger, fontFamily: fonts.bodySemi, fontSize: 11.5, marginTop: 6 },
+  submissionMessage: { borderWidth: 1, borderRadius: radius.md, padding: 12, marginTop: 12 },
+  successMessage: { backgroundColor: '#EAF7EF', borderColor: '#A9D9B8' },
+  failureMessage: { backgroundColor: '#FDEDED', borderColor: '#E6B2B2' },
+  submissionMessageText: { fontFamily: fonts.bodySemi, fontSize: 13, lineHeight: 19 },
+  successText: { color: '#176B35' },
+  failureText: { color: colors.danger },
   infoBox: {
     flexDirection: 'row', gap: 8, backgroundColor: colors.blueBg, padding: 12, borderRadius: radius.md, marginTop: 18, alignItems: 'flex-start',
   },

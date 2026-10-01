@@ -763,14 +763,67 @@ export function AppProvider({ children }) {
   }
 
   async function addPostedJob(job) {
-    if (!session?.user?.id) return false;
-    const result = await supabase.from('job_posts').insert({ user_id: session.user.id, job_type: job.jobType, description: job.description, budget: Number(job.budget) || 0, date_needed: job.dateNeeded, contact: job.contact || null, photos: job.photos || [] }).select().single();
-    if (result.error) {
-      report(result.error.message);
-      return false;
+    if (!session?.user?.id) {
+      throw new Error('Your session has expired. Please sign in again before posting a job.');
     }
-    setPostedJobs((current) => [{ ...result.data, jobType: result.data.job_type, dateNeeded: result.data.date_needed, photos: result.data.photos || [], budget: String(result.data.budget) }, ...current]);
-    return true;
+
+    const uploadedPaths = [];
+    try {
+      const photoUrls = [];
+      for (const [index, uri] of (job.photos || []).entries()) {
+        if (uri.startsWith('http')) {
+          photoUrls.push(uri);
+          continue;
+        }
+
+        const response = await fetch(uri);
+        if (!response.ok) throw new Error('A selected job photo could not be read.');
+        const fileData = await response.arrayBuffer();
+        const path = `${session.user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}-${index}.jpg`;
+        const upload = await supabase.storage.from('job-images').upload(path, fileData, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        });
+        if (upload.error) throw upload.error;
+        uploadedPaths.push(path);
+        photoUrls.push(supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl);
+      }
+
+      const result = await supabase.from('job_posts').insert({
+        user_id: session.user.id,
+        job_type: job.jobType,
+        description: job.description,
+        budget: Number(job.budget),
+        date_needed: job.dateNeeded,
+        contact: job.contact || null,
+        photos: photoUrls,
+      }).select().single();
+      if (result.error) throw result.error;
+
+      const postedJob = {
+        ...result.data,
+        jobType: result.data.job_type,
+        dateNeeded: result.data.date_needed,
+        photos: result.data.photos || [],
+        budget: String(result.data.budget),
+      };
+      setPostedJobs((current) => [postedJob, ...current.filter((item) => item.id !== postedJob.id)]);
+      return postedJob;
+    } catch (jobError) {
+      if (uploadedPaths.length) {
+        try {
+          const cleanup = await supabase.storage.from('job-images').remove(uploadedPaths);
+          if (cleanup.error) {
+            console.error('Unable to clean up job photos after a failed post:', cleanup.error);
+          }
+        } catch (cleanupError) {
+          console.error('Unable to clean up job photos after a failed post:', cleanupError);
+        }
+      }
+      const message = jobError instanceof Error ? jobError.message : 'Unable to post your job request.';
+      report(message);
+      throw new Error(message);
+    }
   }
 
   async function updateVehicleStatus(id, status) {
@@ -837,13 +890,19 @@ export function AppProvider({ children }) {
         const features = await supabase.from('vehicle_features').insert(listing.features.map((feature) => ({ vehicle_id: result.data.id, feature })));
         if (features.error) throw features.error;
       }
-      await loadData(session);
-      return mapVehicle({
+
+      const createdVehicle = mapVehicle({
         ...result.data,
         profiles: { full_name: listing.provider || user.providerName || user.name },
         vehicle_images: urls.map((storage_path, index) => ({ storage_path, display_order: index })),
         vehicle_features: (listing.features || []).map((feature) => ({ feature })),
       });
+      await loadData(session);
+      setVehicles((current) => [
+        createdVehicle,
+        ...current.filter((vehicle) => vehicle.id !== createdVehicle.id),
+      ]);
+      return createdVehicle;
     } catch (uploadError) {
       const message = listingErrorMessage(uploadError);
       report(message);

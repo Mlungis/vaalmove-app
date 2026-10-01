@@ -7,7 +7,7 @@ import { colors, fonts, radius } from '../theme';
 
 const MAX_PHOTOS = 6;
 
-export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, error }) {
+export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, error, required = true }) {
   async function pickFromLibrary() {
     try {
       if (photos.length >= max) {
@@ -96,7 +96,7 @@ export default function PhotoPicker({ photos = [], onChange, max = MAX_PHOTOS, e
         ) : null}
       </ScrollView>
       <Text style={styles.hint}>
-        {photos.length}/{max} photos added{error ? '' : ' · At least 1 required'}
+        {photos.length}/{max} photos added{error ? '' : required ? ' · At least 1 required' : ' · Optional'}
       </Text>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>

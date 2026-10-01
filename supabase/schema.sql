@@ -1,6 +1,6 @@
 -- LexRidesZA / VaalMove Supabase schema
 -- Run this entire file in the Supabase SQL Editor. It creates the public
--- "vehicle-images" bucket and its access policies for listing photos.
+-- Listing and job-photo buckets, including their owner-scoped access policies.
 
 create extension if not exists pgcrypto;
 create extension if not exists btree_gist with schema extensions;
@@ -762,6 +762,10 @@ insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)
 on conflict (id) do update set public = excluded.public;
 
+insert into storage.buckets (id, name, public)
+values ('job-images', 'job-images', true)
+on conflict (id) do update set public = excluded.public;
+
 create policy "avatars are publicly readable"
   on storage.objects for select
   using (bucket_id = 'avatars');
@@ -821,6 +825,35 @@ create policy "users delete their vehicle images"
     )
   );
 
+create policy "job images are publicly readable"
+  on storage.objects for select
+  using (bucket_id = 'job-images');
+
+create policy "users upload their job images"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'job-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "users update their job images"
+  on storage.objects for update to authenticated
+  using (
+    bucket_id = 'job-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'job-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "users delete their job images"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'job-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
 -- App-owned metadata that is not part of the payment provider or auth service.
 -- Only non-sensitive payment metadata is stored; never store card numbers or CVVs.
 create table if not exists public.payment_methods (
@@ -866,3 +899,5 @@ create policy "users manage own notification preferences"
 
 create policy "users manage own job posts"
   on public.job_posts for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+grant select, insert, update, delete on table public.job_posts to authenticated;
