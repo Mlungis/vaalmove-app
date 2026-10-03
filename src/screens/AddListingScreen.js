@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -10,8 +10,10 @@ import { PrimaryButton } from '../components/Buttons';
 import { colors, fonts, radius } from '../theme';
 import { CATEGORIES, useAppContext } from '../AppContext';
 
-export default function AddListingScreen({ navigation }) {
-  const { addVehicleListing, user } = useAppContext();
+export default function AddListingScreen({ navigation, route }) {
+  const { addVehicleListing, editVehicleListing, user, vehicles } = useAppContext();
+  const vehicleId = route?.params?.vehicleId;
+  const vehicle = vehicles.find((item) => item.id === vehicleId);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0].id);
   const [price, setPrice] = useState('');
@@ -24,6 +26,19 @@ export default function AddListingScreen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submissionMessage, setSubmissionMessage] = useState(null);
+
+  useEffect(() => {
+    if (!vehicle) return;
+    setTitle(vehicle.title || '');
+    setCategory(vehicle.category || CATEGORIES[0].id);
+    setPrice(String(vehicle.priceDaily || ''));
+    setYear(vehicle.year ? String(vehicle.year) : '');
+    setMinDays(String(vehicle.minDays || 1));
+    setPickupLocation(vehicle.location || '');
+    setAddMapPin(vehicle.latitude != null && vehicle.longitude != null);
+    setInsurance(vehicle.insurance || '');
+    setPhotos(vehicle.gallery || (vehicle.image ? [vehicle.image] : []));
+  }, [vehicle]);
 
   async function handleSubmit() {
     const next = {};
@@ -43,7 +58,7 @@ export default function AddListingScreen({ navigation }) {
     setSubmitting(true);
     try {
       let mapCoordinates = {};
-      if (addMapPin) {
+      if (addMapPin && (!vehicle || vehicle.latitude == null || vehicle.longitude == null)) {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== 'granted') {
           Alert.alert(
@@ -58,30 +73,37 @@ export default function AddListingScreen({ navigation }) {
           longitude: position.coords.longitude,
         };
       }
-      await addVehicleListing({
+      const listing = {
         title: title.trim(),
         category,
         priceDaily: parsedPrice,
         year: parsedYear,
-        fuel: 'Diesel',
-        transmission: 'Manual',
+        fuel: vehicle?.fuel || 'Diesel',
+        transmission: vehicle?.transmission || 'Manual',
+        description: vehicle?.description,
+        features: vehicle?.features || [],
         provider: user.providerName,
         location: pickupLocation.trim(),
-        ...mapCoordinates,
+        latitude: addMapPin ? (mapCoordinates.latitude ?? vehicle?.latitude ?? null) : null,
+        longitude: addMapPin ? (mapCoordinates.longitude ?? vehicle?.longitude ?? null) : null,
         image: photos[0],
         gallery: photos,
         minDays: parsedMinDays,
         insurance,
-        pricingRules: {
+        pricingRules: vehicle?.pricingRules || {
           weekendSurcharge: 0,
           weeklyDiscount: 0,
           minDays: parsedMinDays,
           cancellation: 'Contact provider to confirm cancellation terms',
         },
-      });
+      };
+      if (vehicle) await editVehicleListing(vehicle.id, listing);
+      else await addVehicleListing(listing);
       setSubmissionMessage({
         type: 'success',
-        text: 'Your listing was published successfully and is now in Your listings.',
+        text: vehicle
+          ? 'Your listing changes have been saved.'
+          : 'Your listing was published successfully and is now in Your listings.',
       });
     } catch (error) {
       setSubmissionMessage({
@@ -95,10 +117,10 @@ export default function AddListingScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Header title="Create a signature listing" subtitle="Present your vehicle at its best" onBack={() => navigation.goBack()} />
+      <Header title={vehicle ? 'Edit your listing' : 'Create a signature listing'} subtitle="Present your vehicle at its best" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 32 }}>
         <Text style={styles.eyebrow}>HOST WITH DISTINCTION</Text>
-        <Text style={styles.introTitle}>Add a vehicle to your collection</Text>
+        <Text style={styles.introTitle}>{vehicle ? 'Update your vehicle details' : 'Add a vehicle to your collection'}</Text>
         <Text style={styles.introText}>Every detail helps guests discover a more considered way to move.</Text>
         <Text style={styles.label}>Photos</Text>
         <PhotoPicker
@@ -214,7 +236,7 @@ export default function AddListingScreen({ navigation }) {
           </View>
         ) : null}
         <PrimaryButton
-          label="Publish Listing"
+          label={vehicle ? 'Save Changes' : 'Publish Listing'}
           onPress={handleSubmit}
           loading={submitting}
           disabled={submissionMessage?.type === 'success'}
@@ -222,7 +244,7 @@ export default function AddListingScreen({ navigation }) {
         />
         {submissionMessage?.type === 'success' ? (
           <PrimaryButton
-            label="View my listings"
+            label={vehicle ? 'Return to my listings' : 'View my listings'}
             onPress={() => navigation.goBack()}
             style={{ backgroundColor: colors.skyMid, marginTop: 12 }}
           />

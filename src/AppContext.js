@@ -1106,6 +1106,141 @@ export function AppProvider({ children }) {
     return supabase.storage.from('vehicle-images').getPublicUrl(path).data.publicUrl;
   }
 
+  function vehicleImageStoragePath(url, providerId, vehicleId) {
+    try {
+      const path = new URL(url).pathname;
+      const marker = '/storage/v1/object/public/vehicle-images/';
+      const markerIndex = path.indexOf(marker);
+      if (markerIndex < 0) return null;
+      const storagePath = decodeURIComponent(path.slice(markerIndex + marker.length));
+      return storagePath.startsWith(`${providerId}/${vehicleId}/`) ? storagePath : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function editVehicleListing(id, listing) {
+    if (!session?.user?.id) throw new Error('Your session has expired. Please sign in again before editing a listing.');
+    const providerId = session.user.id;
+    const uploadedPaths = [];
+    try {
+      const gallery = listing.gallery || [];
+      const imageUrls = await Promise.all(gallery.map(async (uri, index) => {
+        const url = await uploadVehicleImage(uri, providerId, id, index);
+        if (!uri.startsWith('http')) {
+          const storagePath = vehicleImageStoragePath(url, providerId, id);
+          if (storagePath) uploadedPaths.push(storagePath);
+        }
+        return url;
+      }));
+      const vehicleResult = await supabase.from('vehicles').update({
+        title: listing.title,
+        category: listing.category,
+        price_daily: listing.priceDaily,
+        year: listing.year,
+        fuel: listing.fuel || 'Diesel',
+        transmission: listing.transmission || 'Manual',
+        description: listing.description || null,
+        location_name: listing.location,
+        latitude: listing.latitude ?? null,
+        longitude: listing.longitude ?? null,
+        insurance_details: listing.insurance || null,
+        min_rental_days: listing.minDays || 1,
+        weekend_surcharge_percent: listing.pricingRules?.weekendSurcharge || 0,
+        weekly_discount_percent: listing.pricingRules?.weeklyDiscount || 0,
+        cancellation_policy: listing.pricingRules?.cancellation || null,
+      }).eq('id', id).eq('provider_id', providerId).select('*').single();
+      if (vehicleResult.error) throw vehicleResult.error;
+
+      const oldImages = await supabase.from('vehicle_images').select('id, storage_path, display_order, is_cover').eq('vehicle_id', id);
+      if (oldImages.error) throw oldImages.error;
+      const deleteImages = await supabase.from('vehicle_images').delete().eq('vehicle_id', id);
+      if (deleteImages.error) throw deleteImages.error;
+      const imageRows = imageUrls.map((storage_path, index) => ({
+        vehicle_id: id,
+        storage_path,
+        display_order: index,
+        is_cover: index === 0,
+      }));
+      if (imageRows.length) {
+        const insertImages = await supabase.from('vehicle_images').insert(imageRows);
+        if (insertImages.error) {
+          await supabase.from('vehicle_images').insert(oldImages.data || []);
+          throw insertImages.error;
+        }
+      }
+
+      const deleteFeatures = await supabase.from('vehicle_features').delete().eq('vehicle_id', id);
+      if (deleteFeatures.error) throw deleteFeatures.error;
+      if (listing.features?.length) {
+        const insertFeatures = await supabase.from('vehicle_features').insert(
+          listing.features.map((feature) => ({ vehicle_id: id, feature })),
+        );
+        if (insertFeatures.error) throw insertFeatures.error;
+      }
+
+      const updatedVehicle = mapVehicle({
+        ...vehicleResult.data,
+        profiles: { full_name: listing.provider || user.providerName || user.name },
+        vehicle_images: imageUrls.map((storage_path, index) => ({ storage_path, display_order: index })),
+        vehicle_features: (listing.features || []).map((feature) => ({ feature })),
+      });
+      setVehicles((current) => current.map((vehicle) => vehicle.id === id ? updatedVehicle : vehicle));
+
+      const retainedUrls = new Set(imageUrls);
+      const removedPaths = (oldImages.data || [])
+        .filter((image) => !retainedUrls.has(image.storage_path))
+        .map((image) => vehicleImageStoragePath(image.storage_path, providerId, id))
+        .filter(Boolean);
+      if (removedPaths.length) {
+        const cleanup = await supabase.storage.from('vehicle-images').remove(removedPaths);
+        if (cleanup.error) {
+          report(`Listing updated, but some removed photos could not be deleted: ${cleanup.error.message}`);
+        }
+      }
+      return updatedVehicle;
+    } catch (editError) {
+      if (uploadedPaths.length) {
+        const cleanup = await supabase.storage.from('vehicle-images').remove(uploadedPaths);
+        if (cleanup.error) {
+          report(`The listing could not be updated, and some new photos could not be cleaned up: ${cleanup.error.message}`);
+        }
+      }
+      const message = listingErrorMessage(editError);
+      report(message);
+      throw new Error(message);
+    }
+  }
+
+  async function deleteVehicleListing(id) {
+    if (!session?.user?.id) throw new Error('Your session has expired. Please sign in again before deleting a listing.');
+    const providerId = session.user.id;
+    const imageResult = await supabase.from('vehicle_images').select('storage_path').eq('vehicle_id', id);
+    if (imageResult.error) {
+      report(imageResult.error.message);
+      throw imageResult.error;
+    }
+    const deleteResult = await supabase.from('vehicles').delete().eq('id', id).eq('provider_id', providerId).select('id').maybeSingle();
+    if (deleteResult.error) {
+      report(deleteResult.error.message);
+      throw deleteResult.error;
+    }
+    if (!deleteResult.data) throw new Error('This listing no longer exists or you do not have permission to delete it.');
+
+    setVehicles((current) => current.filter((vehicle) => vehicle.id !== id));
+    const storagePaths = (imageResult.data || [])
+      .map((image) => vehicleImageStoragePath(image.storage_path, providerId, id))
+      .filter(Boolean);
+    if (storagePaths.length) {
+      const cleanup = await supabase.storage.from('vehicle-images').remove(storagePaths);
+      if (cleanup.error) {
+        report(`The listing was deleted, but some photos could not be removed: ${cleanup.error.message}`);
+        return { photoCleanupError: cleanup.error };
+      }
+    }
+    return { photoCleanupError: null };
+  }
+
   async function addVehicleListing(listing) {
     if (!session?.user?.id) throw new Error('Your session has expired. Please sign in again before publishing a listing.');
     const profile = await supabase.from('profiles').upsert({
@@ -1210,7 +1345,7 @@ export function AppProvider({ children }) {
     unreadMessages: conversations.reduce((sum, item) => sum + item.unread, 0), user, updateUser, refreshProfile, uploadAvatar,
     notificationSettings, updateNotificationSettings, appSettings, updateAppSettings, paymentMethods, addPaymentMethod, removePaymentMethod,
     setDefaultPaymentMethod, savedLocations, addSavedLocation, removeSavedLocation, postedJobs, addPostedJob,
-    addVehicleListing, updateVehicleStatus, setVehicleMapPin, bookingDraft, setBookingDraft, signOut, deleteAccount,
+    addVehicleListing, editVehicleListing, deleteVehicleListing, updateVehicleStatus, setVehicleMapPin, bookingDraft, setBookingDraft, signOut, deleteAccount,
   };
 
   return (

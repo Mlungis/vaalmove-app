@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Linking, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert } from '../lib/alerts';
@@ -9,10 +9,14 @@ import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
 
 export default function ProviderDashboardScreen({ navigation }) {
-  const { user, session, vehicles, bookings, getVehicleById, updateVehicleStatus, setVehicleMapPin } = useAppContext();
+  const {
+    user, session, vehicles, bookings, getVehicleById, updateVehicleStatus,
+    setVehicleMapPin, deleteVehicleListing,
+  } = useAppContext();
   const myListings = vehicles.filter((v) => v.providerId === session?.user?.id || (user.providerName && v.provider === user.providerName));
   const [activeMap, setActiveMap] = useState(() => Object.fromEntries(myListings.map((v) => [v.id, v.status === 'published'])));
   const [mapPinBusy, setMapPinBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     setActiveMap(Object.fromEntries(myListings.map((vehicle) => [vehicle.id, vehicle.status === 'published'])));
@@ -70,6 +74,34 @@ export default function ProviderDashboardScreen({ navigation }) {
         { text: vehicle.latitude != null ? 'Update pin' : 'Add pin', onPress: () => { void saveCurrentMapPin(vehicle); } },
       ],
     );
+  }
+
+  function confirmDeleteListing(vehicle) {
+    Alert.alert(
+      'Permanently delete listing?',
+      `“${vehicle.title}” and its photos will be permanently removed. This cannot be undone. Listings with booking history may not be deletable; pause those listings instead.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete permanently', style: 'destructive', onPress: () => { void permanentlyDeleteListing(vehicle); } },
+      ],
+    );
+  }
+
+  async function permanentlyDeleteListing(vehicle) {
+    setDeletingId(vehicle.id);
+    try {
+      const result = await deleteVehicleListing(vehicle.id);
+      Alert.alert(
+        result.photoCleanupError ? 'Listing deleted with a warning' : 'Listing deleted',
+        result.photoCleanupError
+          ? 'The listing is gone, but some stored photos could not be removed. Please contact support.'
+          : 'The listing and its stored photos were permanently removed.',
+      );
+    } catch (error) {
+      Alert.alert('Could not delete listing', error?.message || 'Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -135,6 +167,31 @@ export default function ProviderDashboardScreen({ navigation }) {
                 />
                 <Text style={styles.listingStatus}>{activeMap[v.id] ? 'Active' : 'Paused'}</Text>
               </View>
+              {v.providerId === session?.user?.id ? (
+                <View style={styles.listingActions}>
+                  <TouchableOpacity
+                    style={styles.editListingButton}
+                    accessibilityRole="button"
+                    onPress={() => navigation.navigate('AddListing', { vehicleId: v.id })}
+                  >
+                    <Ionicons name="create-outline" size={15} color={colors.skyBottom} />
+                    <Text style={styles.editListingText}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteListingButton}
+                    accessibilityRole="button"
+                    onPress={() => confirmDeleteListing(v)}
+                    disabled={deletingId === v.id}
+                  >
+                    {deletingId === v.id
+                      ? <ActivityIndicator size="small" color={colors.danger} />
+                      : <Ionicons name="trash-outline" size={15} color={colors.danger} />}
+                    <Text style={styles.deleteListingText}>
+                      {deletingId === v.id ? 'Deleting…' : 'Delete permanently'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </View>
           ))
         )}
@@ -173,12 +230,17 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 22, marginBottom: 10 },
   sectionTitle: { fontFamily: fonts.displaySemi, fontSize: 15, color: colors.ink, marginTop: 22, marginBottom: 10 },
   link: { color: colors.skyBottom, fontFamily: fonts.bodySemi, fontSize: 12.5 },
-  listingCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 12, marginBottom: 10, gap: 12 },
+  listingCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 12, marginBottom: 10, gap: 12 },
   listingImage: { width: 56, height: 56, borderRadius: 12 },
   listingTitle: { fontFamily: fonts.bodySemi, fontSize: 13.5, color: colors.ink },
   listingMeta: { color: colors.muted, marginTop: 4, fontFamily: fonts.body, fontSize: 11.5 },
   mapPinButton: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 8 },
   mapPinButtonText: { color: colors.skyBottom, fontFamily: fonts.bodySemi, fontSize: 10.5 },
+  listingActions: { flexDirection: 'row', width: '100%', justifyContent: 'flex-end', gap: 16, borderTopWidth: 1, borderTopColor: colors.hairline, paddingTop: 10, marginTop: 2 },
+  editListingButton: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4, paddingHorizontal: 6 },
+  editListingText: { color: colors.skyBottom, fontFamily: fonts.bodySemi, fontSize: 11.5 },
+  deleteListingButton: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4, paddingHorizontal: 6 },
+  deleteListingText: { color: colors.danger, fontFamily: fonts.bodySemi, fontSize: 11.5 },
   listingStatus: { fontFamily: fonts.body, fontSize: 10, color: colors.muted, marginTop: 2 },
   booking: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceAlt, padding: 12, borderRadius: radius.md, marginBottom: 8 },
   bookingTitle: { fontFamily: fonts.bodySemi, fontSize: 13.5, color: colors.ink },
