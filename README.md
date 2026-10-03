@@ -9,8 +9,8 @@ Supabase Edge Functions; secret payment credentials stay on the server.
 
 1. Install Node.js and the Expo Go app.
 2. Copy `.env.example` to `.env.local` and set the Supabase project URL and
-   publishable key. For Android map tiles, set `GOOGLE_MAPS_API_KEY` to a
-   Google Maps SDK for Android key. Optionally set `EXPO_PUBLIC_SUPPORT_PHONE`
+   publishable key. Optionally set `GOOGLE_MAPS_API_KEY` to enable Google map
+   tiles for native trip tracking on Android, and set `EXPO_PUBLIC_SUPPORT_PHONE`
    and `EXPO_PUBLIC_SUPPORT_EMAIL` to enable the matching support contact
    buttons.
 3. Install dependencies and start Expo:
@@ -22,21 +22,22 @@ Supabase Edge Functions; secret payment credentials stay on the server.
 
 4. Scan the QR code with Expo Go, or run `npx expo start --web`.
 
-Android map keys are read by `app.config.js` at build time. Rebuild the native
-Android app after configuring or changing the key; restrict it in Google Cloud
-to the Android package `com.lexridesza.app` and your app-signing certificate,
-enable Maps SDK for Android, and configure billing.
-The web app uses OpenStreetMap tiles, while iOS uses Apple Maps.
+The Nearby Vehicles map uses OpenStreetMap tiles on all platforms and needs no
+Google Maps key. Native trip tracking still uses the platform map: iOS uses
+Apple Maps, while Android uses Google Maps. Android map keys are read by
+`app.config.js` at build time. Rebuild the native Android app after configuring
+or changing the key; restrict it in Google Cloud to the Android package
+`com.lexridesza.app` and your app-signing certificate, enable Maps SDK for
+Android, and configure billing.
 
 Never put a Supabase service-role key or Paystack secret key in an Expo
 `EXPO_PUBLIC_*` variable. `.env.local` is ignored by Git.
 
 GPS positioning uses the device's native location services (Core Location on
 iOS and Android's location provider); it does not require a Google Maps API
-key. iOS uses Apple Maps without a key. Android uses Google Maps for map tiles,
-so its key must have Maps SDK for Android enabled and be restricted to this
-app's Android package and signing certificate. The key is included in the
-native app configuration and is not a server secret.
+key. OpenStreetMap's public tile service is suitable for modest use and is
+subject to its attribution and tile-usage policies. For larger production
+traffic, use a dedicated OpenStreetMap tile provider or host tiles yourself.
 
 ## Configure the Supabase backend
 
@@ -110,6 +111,10 @@ native app configuration and is not a server secret.
 - Profile and preference persistence, saved locations, favorites, and job
   posts.
 - Published vehicle listings, provider-owned images, features, and availability.
+- Nearby vehicle pickup pins on an OpenStreetMap map. Providers may explicitly
+  opt to add their current location as a public, fixed listing pin when
+  publishing or from Provider Dashboard; customer location used to sort
+  vehicles stays on their device.
 - Server-priced rental bookings with overlap protection and provider/renter
   authorization.
 - Paystack initialization, signed webhooks, server-side transaction

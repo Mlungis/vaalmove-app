@@ -6,7 +6,7 @@ import HomeStack from './HomeStack';
 import MyBookingsScreen from '../screens/MyBookingsScreen';
 import MessagesStack from './MessagesStack';
 import ProfileStack from './ProfileStack';
-import VehicleTrackingScreen from '../screens/VehicleTrackingScreen';
+import NearbyVehiclesScreen from '../screens/NearbyVehiclesScreen';
 import { colors, fonts } from '../theme';
 import { useAppContext } from '../AppContext';
 
@@ -62,7 +62,7 @@ export default function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeStack} />
       <Tab.Screen name="Bookings" component={MyBookingsScreen} />
-      <Tab.Screen name="Track" component={VehicleTrackingScreen} />
+      <Tab.Screen name="Track" component={NearbyVehiclesScreen} />
       <Tab.Screen name="Messages" component={MessagesStack} />
       <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>

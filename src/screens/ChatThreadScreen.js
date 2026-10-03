@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
+  Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -40,9 +40,14 @@ export default function ChatThreadScreen({ navigation, route }) {
     setSending(true);
     try {
       const sent = await sendMessage(id, text.trim());
-      if (!sent) return;
+      if (!sent) {
+        Alert.alert('Message not sent', 'Check your connection and conversation access, then try again.');
+        return;
+      }
       setText('');
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch (sendError) {
+      Alert.alert('Message not sent', sendError.message || 'Please try again.');
     } finally {
       setSending(false);
     }

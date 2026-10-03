@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import { Alert } from '../lib/alerts';
 import Header from '../components/Header';
 import Chip from '../components/Chip';
 import PhotoPicker from '../components/PhotoPicker';
@@ -15,6 +18,7 @@ export default function AddListingScreen({ navigation }) {
   const [year, setYear] = useState('');
   const [minDays, setMinDays] = useState('2');
   const [pickupLocation, setPickupLocation] = useState('');
+  const [addMapPin, setAddMapPin] = useState(false);
   const [insurance, setInsurance] = useState('Full cover');
   const [photos, setPhotos] = useState([]);
   const [errors, setErrors] = useState({});
@@ -38,6 +42,22 @@ export default function AddListingScreen({ navigation }) {
     setSubmissionMessage(null);
     setSubmitting(true);
     try {
+      let mapCoordinates = {};
+      if (addMapPin) {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== 'granted') {
+          Alert.alert(
+            'Location permission needed',
+            'Allow location access to add a map pin to this public vehicle listing.',
+          );
+          return;
+        }
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        mapCoordinates = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+      }
       await addVehicleListing({
         title: title.trim(),
         category,
@@ -47,6 +67,7 @@ export default function AddListingScreen({ navigation }) {
         transmission: 'Manual',
         provider: user.providerName,
         location: pickupLocation.trim(),
+        ...mapCoordinates,
         image: photos[0],
         gallery: photos,
         minDays: parsedMinDays,
@@ -147,6 +168,25 @@ export default function AddListingScreen({ navigation }) {
         />
         {errors.location ? <Text style={styles.errorText}>{errors.location}</Text> : null}
 
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: addMapPin }}
+          style={styles.mapPinOption}
+          onPress={() => setAddMapPin((current) => !current)}
+        >
+          <Ionicons
+            name={addMapPin ? 'checkbox' : 'square-outline'}
+            size={21}
+            color={addMapPin ? colors.skyBottom : colors.muted}
+          />
+          <View style={styles.mapPinCopy}>
+            <Text style={styles.mapPinTitle}>Show this pickup point on the nearby map</Text>
+            <Text style={styles.mapPinDescription}>
+              If you allow location access, your current position will be saved as a public, fixed map pin for this listing. It is not live tracking.
+            </Text>
+          </View>
+        </Pressable>
+
         <Text style={styles.label}>Insurance / cover</Text>
         <TextInput
           style={styles.input}
@@ -211,4 +251,8 @@ const styles = StyleSheet.create({
   successText: { color: '#176B35' },
   failureText: { color: colors.danger },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  mapPinOption: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 16, padding: 13, borderRadius: radius.md, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.surfaceAlt },
+  mapPinCopy: { flex: 1 },
+  mapPinTitle: { fontFamily: fonts.bodySemi, fontSize: 12.5, color: colors.ink },
+  mapPinDescription: { fontFamily: fonts.body, fontSize: 11.5, lineHeight: 16, color: colors.muted, marginTop: 4 },
 });

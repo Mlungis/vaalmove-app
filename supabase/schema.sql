@@ -358,6 +358,32 @@ $$;
 revoke all on function public.start_vehicle_conversation(uuid) from public, anon;
 grant execute on function public.start_vehicle_conversation(uuid) to authenticated;
 
+create or replace function public.get_conversation_participants()
+returns table (
+  conversation_id uuid,
+  user_id uuid,
+  full_name text,
+  provider_name text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select cp.conversation_id, cp.user_id, p.full_name, p.provider_name
+  from public.conversation_participants cp
+  join public.profiles p on p.id = cp.user_id
+  where exists (
+    select 1
+    from public.conversation_participants own
+    where own.conversation_id = cp.conversation_id
+      and own.user_id = auth.uid()
+  );
+$$;
+
+revoke all on function public.get_conversation_participants() from public, anon;
+grant execute on function public.get_conversation_participants() to authenticated;
+
 create table public.messages (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.conversations(id) on delete cascade,
@@ -579,6 +605,10 @@ create policy "providers manage own availability"
   with check (exists (select 1 from public.vehicles v where v.id = vehicle_id and v.provider_id = auth.uid()));
 
 grant select, insert, update on table public.profiles to authenticated;
+grant select on table public.conversations to authenticated;
+grant select on table public.conversation_participants to authenticated;
+grant select, insert on table public.messages to authenticated;
+grant update (read_at) on table public.messages to authenticated;
 grant select, insert, update, delete on table public.vehicles to authenticated;
 grant select, insert, update, delete on table public.vehicle_images to authenticated;
 grant select, insert, update, delete on table public.vehicle_features to authenticated;

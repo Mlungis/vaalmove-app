@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Linking } from 'react-native';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { Alert } from '../lib/alerts';
 import Header from '../components/Header';
 import EmptyState from '../components/EmptyState';
 import { colors, fonts, radius, shadow } from '../theme';
 import { useAppContext } from '../AppContext';
 
 export default function ProviderDashboardScreen({ navigation }) {
-  const { user, session, vehicles, bookings, getVehicleById, updateVehicleStatus } = useAppContext();
+  const { user, session, vehicles, bookings, getVehicleById, updateVehicleStatus, setVehicleMapPin } = useAppContext();
   const myListings = vehicles.filter((v) => v.providerId === session?.user?.id || (user.providerName && v.provider === user.providerName));
   const [activeMap, setActiveMap] = useState(() => Object.fromEntries(myListings.map((v) => [v.id, v.status === 'published'])));
+  const [mapPinBusy, setMapPinBusy] = useState(false);
 
   useEffect(() => {
     setActiveMap(Object.fromEntries(myListings.map((vehicle) => [vehicle.id, vehicle.status === 'published'])));
@@ -26,6 +29,47 @@ export default function ProviderDashboardScreen({ navigation }) {
     if (await updateVehicleStatus(id, nextActive ? 'published' : 'paused')) {
       setActiveMap((current) => ({ ...current, [id]: nextActive }));
     }
+  }
+
+  async function saveCurrentMapPin(vehicle) {
+    setMapPinBusy(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert(
+          'Location permission needed',
+          'Allow location access to save your current position as this listing’s public pickup pin.',
+          permission.canAskAgain
+            ? [{ text: 'OK' }]
+            : [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Open settings', onPress: () => Linking.openSettings() },
+            ],
+        );
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await setVehicleMapPin(vehicle.id, {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+      Alert.alert('Pickup pin updated', `${vehicle.title} now has a public pickup pin on the nearby vehicles map.`);
+    } catch (error) {
+      Alert.alert('Could not update pickup pin', error?.message || 'Please try again.');
+    } finally {
+      setMapPinBusy(false);
+    }
+  }
+
+  function confirmMapPinUpdate(vehicle) {
+    Alert.alert(
+      'Set public pickup pin?',
+      'Your current device location will be saved to this listing and shown to anyone browsing the nearby vehicles map. This is a fixed listing location, not live tracking.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: vehicle.latitude != null ? 'Update pin' : 'Add pin', onPress: () => { void saveCurrentMapPin(vehicle); } },
+      ],
+    );
   }
 
   return (
@@ -68,6 +112,19 @@ export default function ProviderDashboardScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.listingTitle} numberOfLines={1}>{v.title}</Text>
                 <Text style={styles.listingMeta}>R{v.priceDaily}/day · {v.rating ? v.rating.toFixed(1) : 'New'} ★</Text>
+                {v.providerId === session?.user?.id ? (
+                  <TouchableOpacity
+                    style={styles.mapPinButton}
+                    accessibilityRole="button"
+                    onPress={() => confirmMapPinUpdate(v)}
+                    disabled={mapPinBusy}
+                  >
+                    <Ionicons name={v.latitude != null ? 'location' : 'location-outline'} size={13} color={colors.skyBottom} />
+                    <Text style={styles.mapPinButtonText}>
+                      {v.latitude != null ? 'Update public pickup pin' : 'Add public pickup pin'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
               <View style={{ alignItems: 'center' }}>
                 <Switch
@@ -120,6 +177,8 @@ const styles = StyleSheet.create({
   listingImage: { width: 56, height: 56, borderRadius: 12 },
   listingTitle: { fontFamily: fonts.bodySemi, fontSize: 13.5, color: colors.ink },
   listingMeta: { color: colors.muted, marginTop: 4, fontFamily: fonts.body, fontSize: 11.5 },
+  mapPinButton: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 8 },
+  mapPinButtonText: { color: colors.skyBottom, fontFamily: fonts.bodySemi, fontSize: 10.5 },
   listingStatus: { fontFamily: fonts.body, fontSize: 10, color: colors.muted, marginTop: 2 },
   booking: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceAlt, padding: 12, borderRadius: radius.md, marginBottom: 8 },
   bookingTitle: { fontFamily: fonts.bodySemi, fontSize: 13.5, color: colors.ink },

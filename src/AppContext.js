@@ -65,6 +65,13 @@ function mapProfileToUser(profile, authUser) {
   };
 }
 
+function queryResult(query) {
+  return Promise.resolve(query).then(
+    (result) => result,
+    (error) => ({ data: null, error }),
+  );
+}
+
 function formatTime(value) {
   return value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 }
@@ -142,7 +149,7 @@ function mapBooking(row) {
 }
 
 function mapConversation(conversation, participants, messages, currentUserId) {
-  const member = participants.find((item) => item.user_id !== currentUserId)?.profiles || {};
+  const member = participants.find((item) => item.user_id !== currentUserId) || {};
   const ownMessages = messages.filter((message) => message.conversation_id === conversation.id);
   const unread = ownMessages.filter((message) => message.sender_id !== currentUserId && !message.read_at).length;
   const last = ownMessages[ownMessages.length - 1];
@@ -187,6 +194,10 @@ export function AppProvider({ children }) {
   const [bookingDraft, setBookingDraft] = useState(null);
   const [authSuccess, setAuthSuccess] = useState(null);
   const authSuccessTimer = useRef(null);
+  const loadGeneration = useRef(0);
+  const conversationLoadGeneration = useRef(0);
+  const currentUserIdRef = useRef(null);
+  const loadedUserIdRef = useRef(null);
 
   const report = useCallback((message) => {
     if (message) setError(message);
@@ -219,108 +230,175 @@ export function AppProvider({ children }) {
     return 'We could not publish this listing. Check your Supabase setup and try again.';
   }
 
-  const loadData = useCallback(async (activeSession) => {
-    if (!activeSession?.user?.id) {
-      setVehicles([]); setBookings([]); setFavorites([]); setConversations([]); setNotifications([]);
-      setPaymentMethods([]); setSavedLocations([]); setPostedJobs([]); setUser(EMPTY_USER);
-      setAvailabilityRows([]); setPublicBookingRanges([]); setTrackingRows([]);
-      setAppSettings(DEFAULT_APP_SETTINGS);
+  const loadConversationData = useCallback(async (userId) => {
+    const generation = ++conversationLoadGeneration.current;
+    const conversationResult = await queryResult(supabase
+      .from('conversations')
+      .select('id, booking_id, vehicle_id, created_at')
+      .order('created_at', { ascending: false }));
+    if (conversationResult.error) throw conversationResult.error;
+
+    const conversationRows = conversationResult.data || [];
+    const conversationIds = conversationRows.map((row) => row.id);
+    if (!conversationIds.length) {
+      if (generation === conversationLoadGeneration.current && currentUserIdRef.current === userId) {
+        setConversations([]);
+      }
       return;
     }
+
+    const [participantResult, messageResult] = await Promise.all([
+      queryResult(supabase.rpc('get_conversation_participants')),
+      queryResult(supabase.from('messages').select('*').in('conversation_id', conversationIds).order('created_at', { ascending: true })),
+    ]);
+    if (participantResult.error) throw participantResult.error;
+    if (messageResult.error) throw messageResult.error;
+    if (generation !== conversationLoadGeneration.current || currentUserIdRef.current !== userId) return;
+
+    setConversations(conversationRows.map((row) => mapConversation(
+      row,
+      participantResult.data || [],
+      messageResult.data || [],
+      userId,
+    )));
+  }, []);
+
+  function clearAccountData() {
+    setVehicles([]);
+    setBookings([]);
+    setFavorites([]);
+    setConversations([]);
+    setNotifications([]);
+    setPaymentMethods([]);
+    setSavedLocations([]);
+    setPostedJobs([]);
+    setReviews([]);
+    setAvailabilityRows([]);
+    setPublicBookingRanges([]);
+    setTrackingRows([]);
+    setUser(EMPTY_USER);
+    setNotificationSettings({ push: true, email: true, sms: false, promotions: true });
+    setAppSettings(DEFAULT_APP_SETTINGS);
+    loadedUserIdRef.current = null;
+  }
+
+  const loadData = useCallback(async (activeSession) => {
+    const generation = ++loadGeneration.current;
+    if (!activeSession?.user?.id) {
+      currentUserIdRef.current = null;
+      clearAccountData();
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    const userId = activeSession.user.id;
+    currentUserIdRef.current = userId;
+    if (loadedUserIdRef.current && loadedUserIdRef.current !== userId) clearAccountData();
     setLoading(true);
     setError(null);
-    const userId = activeSession.user.id;
     try {
       const [
         profileResult, vehicleResult, bookingResult, favoriteResult, notificationResult,
         locationResult, paymentResult, preferenceResult, jobResult, reviewResult, availabilityResult, publicBookingRangeResult,
       ] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-        supabase.from('vehicles').select('*, profiles:provider_id(id, full_name, provider_name, phone), vehicle_images(id, storage_path, display_order, is_cover), vehicle_features(feature)').order('created_at', { ascending: false }),
-        supabase.from('bookings').select('*').order('created_at', { ascending: false }),
-        supabase.from('favorites').select('vehicle_id').eq('user_id', userId),
-        supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('saved_locations').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('payment_methods').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('notification_preferences').select('*').eq('user_id', userId).maybeSingle(),
-        supabase.from('job_posts').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('reviews').select('*, profiles:renter_id(full_name)').order('created_at', { ascending: false }),
-        supabase.from('vehicle_availability').select('*'),
-        supabase.rpc('get_public_vehicle_booking_ranges'),
+        queryResult(supabase.from('profiles').select('*').eq('id', userId).maybeSingle()),
+        queryResult(supabase.from('vehicles').select('*, profiles:provider_id(id, full_name, provider_name, phone), vehicle_images(id, storage_path, display_order, is_cover), vehicle_features(feature)').order('created_at', { ascending: false })),
+        queryResult(supabase.from('bookings').select('*').order('created_at', { ascending: false })),
+        queryResult(supabase.from('favorites').select('vehicle_id').eq('user_id', userId)),
+        queryResult(supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
+        queryResult(supabase.from('saved_locations').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
+        queryResult(supabase.from('payment_methods').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
+        queryResult(supabase.from('notification_preferences').select('*').eq('user_id', userId).maybeSingle()),
+        queryResult(supabase.from('job_posts').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
+        queryResult(supabase.from('reviews').select('*, profiles:renter_id(full_name)').order('created_at', { ascending: false })),
+        queryResult(supabase.from('vehicle_availability').select('*')),
+        queryResult(supabase.rpc('get_public_vehicle_booking_ranges')),
       ]);
-      if (profileResult.error) throw profileResult.error;
+      if (generation !== loadGeneration.current || currentUserIdRef.current !== userId) return;
 
       let profile = profileResult.data;
-      if (!profile) {
-        const profileInsert = await supabase.from('profiles').upsert({
+      const loadErrors = [];
+      const collectError = (label, result) => {
+        if (result?.error) loadErrors.push(`${label}: ${result.error.message || result.error}`);
+      };
+      collectError('Profile', profileResult);
+      if (!profile && !profileResult.error) {
+        const profileInsert = await queryResult(supabase.from('profiles').upsert({
           id: userId,
           full_name: activeSession.user.user_metadata?.full_name || '',
           phone: activeSession.user.user_metadata?.phone || activeSession.user.phone || null,
-        }, { onConflict: 'id' }).select('*').single();
-        if (profileInsert.error) throw profileInsert.error;
-        profile = profileInsert.data;
+        }, { onConflict: 'id' }).select('*').single());
+        if (profileInsert.error) collectError('Profile', profileInsert);
+        else profile = profileInsert.data;
       }
-      setUser(mapProfileToUser(profile, activeSession.user));
+      if (generation !== loadGeneration.current || currentUserIdRef.current !== userId) return;
+      setUser(profile
+        ? mapProfileToUser(profile, activeSession.user)
+        : { ...EMPTY_USER, email: activeSession.user.email || '' });
 
-      const firstError = [vehicleResult, bookingResult, favoriteResult, notificationResult, locationResult, paymentResult, preferenceResult, jobResult, reviewResult, availabilityResult, publicBookingRangeResult].find((result) => result.error);
-      if (firstError) throw firstError.error;
-
-      setVehicles((vehicleResult.data || []).map(mapVehicle));
-      setBookings((bookingResult.data || []).map(mapBooking));
-      setFavorites((favoriteResult.data || []).map((row) => row.vehicle_id));
-      setNotifications((notificationResult.data || []).map((row) => ({
-        ...row,
-        read: Boolean(row.read_at),
-        time: formatTime(row.created_at),
-        icon: row.icon || 'notifications-outline',
-        color: row.color || '#2F7FE0',
-      })));
-      setSavedLocations((locationResult.data || []).map((row) => ({ ...row, icon: row.label.toLowerCase() === 'home' ? 'home-outline' : 'location-outline' })));
-      setPaymentMethods((paymentResult.data || []).map((row) => ({ ...row, isDefault: row.is_default, label: row.label, meta: row.meta })));
-      const persistedSettings = preferenceResult.data?.settings || {};
-      setNotificationSettings({
-        push: persistedSettings.push ?? true,
-        email: persistedSettings.email ?? true,
-        sms: persistedSettings.sms ?? false,
-        promotions: persistedSettings.promotions ?? true,
+      const results = [
+        ['Vehicles', vehicleResult, setVehicles, (data) => data.map(mapVehicle)],
+        ['Bookings', bookingResult, setBookings, (data) => data.map(mapBooking)],
+        ['Favorites', favoriteResult, setFavorites, (data) => data.map((row) => row.vehicle_id)],
+        ['Notifications', notificationResult, setNotifications, (data) => data.map((row) => ({
+          ...row,
+          read: Boolean(row.read_at),
+          time: formatTime(row.created_at),
+          icon: row.icon || 'notifications-outline',
+          color: row.color || '#2F7FE0',
+        }))],
+        ['Saved locations', locationResult, setSavedLocations, (data) => data.map((row) => ({ ...row, icon: row.label?.toLowerCase() === 'home' ? 'home-outline' : 'location-outline' }))],
+        ['Payment methods', paymentResult, setPaymentMethods, (data) => data.map((row) => ({ ...row, isDefault: row.is_default, label: row.label, meta: row.meta }))],
+        ['Job posts', jobResult, setPostedJobs, (data) => data.map((row) => ({ ...row, budget: String(row.budget || ''), photos: row.photos || [] }))],
+        ['Reviews', reviewResult, setReviews, (data) => data],
+        ['Vehicle availability', availabilityResult, setAvailabilityRows, (data) => data],
+        ['Booking availability', publicBookingRangeResult, setPublicBookingRanges, (data) => data],
+      ];
+      results.forEach(([label, result, setter, transform]) => {
+        collectError(label, result);
+        if (!result.error) setter(transform(result.data || []));
       });
-      setAppSettings({ ...DEFAULT_APP_SETTINGS, ...persistedSettings });
-      setPostedJobs((jobResult.data || []).map((row) => ({ ...row, budget: String(row.budget || ''), photos: row.photos || [] })));
-      setReviews(reviewResult.data || []);
-      setAvailabilityRows(availabilityResult.data || []);
-      setPublicBookingRanges(publicBookingRangeResult.data || []);
-
-      const conversationResult = await supabase.from('conversations').select('id, booking_id, vehicle_id, created_at').order('created_at', { ascending: false });
-      if (conversationResult.error) throw conversationResult.error;
-      const conversationIds = (conversationResult.data || []).map((row) => row.id);
-      if (conversationIds.length) {
-        const [participantResult, messageResult] = await Promise.all([
-          supabase.from('conversation_participants').select('conversation_id, user_id, profiles:user_id(full_name, provider_name)').in('conversation_id', conversationIds),
-          supabase.from('messages').select('*').in('conversation_id', conversationIds).order('created_at', { ascending: true }),
-        ]);
-        if (participantResult.error) throw participantResult.error;
-        if (messageResult.error) throw messageResult.error;
-        setConversations((conversationResult.data || []).map((row) => mapConversation(row, participantResult.data || [], messageResult.data || [], userId)));
-      } else {
-        setConversations([]);
+      collectError('Notification preferences', preferenceResult);
+      if (!preferenceResult.error) {
+        const persistedSettings = preferenceResult.data?.settings || {};
+        setNotificationSettings({
+          push: persistedSettings.push ?? true,
+          email: persistedSettings.email ?? true,
+          sms: persistedSettings.sms ?? false,
+          promotions: persistedSettings.promotions ?? true,
+        });
+        setAppSettings({ ...DEFAULT_APP_SETTINGS, ...persistedSettings });
       }
+
+      try {
+        await loadConversationData(userId);
+      } catch (conversationError) {
+        collectError('Messages', { error: conversationError });
+      }
+
       const trackingResult = bookingResult.data?.length
-        ? await supabase.from('tracking_locations').select('*').in('booking_id', bookingResult.data.map((row) => row.id)).order('recorded_at', { ascending: true })
+        ? await queryResult(supabase.from('tracking_locations').select('*').in('booking_id', bookingResult.data.map((row) => row.id)).order('recorded_at', { ascending: true }))
         : { data: [], error: null };
-      if (trackingResult.error) throw trackingResult.error;
-      setTrackingRows(trackingResult.data || []);
+      if (generation !== loadGeneration.current || currentUserIdRef.current !== userId) return;
+      collectError('Live tracking', trackingResult);
+      if (!trackingResult.error) setTrackingRows(trackingResult.data || []);
+      loadedUserIdRef.current = userId;
+      if (loadErrors.length) report(`Some account data could not be loaded. ${loadErrors.join(' · ')}`);
     } catch (loadError) {
-      report(loadError.message || 'Unable to load your data.');
+      if (generation === loadGeneration.current && currentUserIdRef.current === userId) {
+        report(loadError.message || 'Unable to load your data.');
+      }
     } finally {
-      setLoading(false);
+      if (generation === loadGeneration.current) setLoading(false);
     }
-  }, [report]);
+  }, [loadConversationData, report]);
 
   useEffect(() => {
     let mounted = true;
     let receivedAuthEvent = false;
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       receivedAuthEvent = true;
+      currentUserIdRef.current = nextSession?.user?.id || null;
       setSession(nextSession);
       setAuthLoading(false);
       if (event === 'SIGNED_IN') {
@@ -330,6 +408,7 @@ export function AppProvider({ children }) {
     supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (!mounted || receivedAuthEvent) return;
       if (sessionError) report(sessionError.message);
+      currentUserIdRef.current = data.session?.user?.id || null;
       setSession(data.session);
       setAuthLoading(false);
     }).catch((sessionError) => {
@@ -448,12 +527,14 @@ export function AppProvider({ children }) {
     if (!session?.user?.id) return undefined;
     const channel = supabase
       .channel(`app-${session.user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadData(session))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        loadConversationData(session.user.id).catch((conversationError) => report(conversationError.message || 'Unable to refresh messages.'));
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${session.user.id}` }, () => loadData(session))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => loadData(session))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [session, loadData]);
+  }, [session, loadConversationData, loadData, report]);
 
   const getVehicleById = useCallback((id) => vehicles.find((vehicle) => vehicle.id === id) || null, [vehicles]);
 
@@ -678,12 +759,31 @@ export function AppProvider({ children }) {
 
   async function sendMessage(conversationId, text) {
     if (!session?.user?.id || !text.trim()) return false;
-    const result = await supabase.from('messages').insert({ conversation_id: conversationId, sender_id: session.user.id, body: text.trim() });
+    const result = await queryResult(supabase
+      .from('messages')
+      .insert({ conversation_id: conversationId, sender_id: session.user.id, body: text.trim() })
+      .select('*')
+      .single());
     if (result.error) {
       report(result.error.message);
       return false;
     }
-    await loadData(session);
+    const sentMessage = {
+      id: result.data.id,
+      from: 'me',
+      text: result.data.body,
+      time: formatTime(result.data.created_at),
+    };
+    setConversations((current) => current.map((conversation) => (
+      conversation.id === conversationId
+        ? {
+          ...conversation,
+          lastMessage: sentMessage.text,
+          time: sentMessage.time,
+          messages: [...conversation.messages, sentMessage],
+        }
+        : conversation
+    )));
     return true;
   }
 
@@ -692,15 +792,20 @@ export function AppProvider({ children }) {
       report('Sign in to contact this vehicle provider.');
       return null;
     }
-    const { data, error: conversationError } = await supabase.rpc(
+    const { data, error: conversationError } = await queryResult(supabase.rpc(
       'start_vehicle_conversation',
       { p_vehicle_id: vehicleId },
-    );
+    ));
     if (conversationError) {
       report(conversationError.message);
       return null;
     }
-    await loadData(session);
+    try {
+      await loadConversationData(session.user.id);
+    } catch (loadError) {
+      report(loadError.message || 'The conversation was created, but could not be loaded.');
+      return null;
+    }
     return data;
   }
 
@@ -724,7 +829,7 @@ export function AppProvider({ children }) {
 
   async function markConversationRead(conversationId) {
     if (!session?.user?.id) return;
-    const result = await supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('conversation_id', conversationId).neq('sender_id', session.user.id).is('read_at', null);
+    const result = await queryResult(supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('conversation_id', conversationId).neq('sender_id', session.user.id).is('read_at', null));
     if (result.error) return report(result.error.message);
     setConversations((current) => current.map((conversation) => conversation.id === conversationId ? { ...conversation, unread: 0 } : conversation));
   }
@@ -973,6 +1078,23 @@ export function AppProvider({ children }) {
     return true;
   }
 
+  async function setVehicleMapPin(id, coordinates) {
+    if (!session?.user?.id) throw new Error('Sign in as the vehicle provider to update its pickup pin.');
+    const result = await supabase.from('vehicles').update({
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude,
+    }).eq('id', id).eq('provider_id', session.user.id).select('*').single();
+    if (result.error) {
+      report(result.error.message);
+      throw result.error;
+    }
+    setVehicles((current) => current.map((vehicle) => (
+      vehicle.id === id
+        ? { ...vehicle, latitude: result.data.latitude, longitude: result.data.longitude }
+        : vehicle
+    )));
+  }
+
   async function uploadVehicleImage(uri, providerId, vehicleId, index) {
     if (!uri || uri.startsWith('http')) return uri;
     const response = await fetch(uri);
@@ -1001,6 +1123,8 @@ export function AppProvider({ children }) {
       provider_id: session.user.id, title: listing.title, category: listing.category, price_daily: listing.priceDaily,
       year: listing.year, fuel: listing.fuel, transmission: listing.transmission, description: listing.description || null,
       location_name: listing.location, status: 'published', insurance_details: listing.insurance || null,
+      latitude: listing.latitude ?? null,
+      longitude: listing.longitude ?? null,
       min_rental_days: listing.minDays || 1,
       weekend_surcharge_percent: listing.pricingRules?.weekendSurcharge || 0,
       weekly_discount_percent: listing.pricingRules?.weeklyDiscount || 0,
@@ -1059,7 +1183,9 @@ export function AppProvider({ children }) {
         throw signOutError;
       }
     }
+    currentUserIdRef.current = null;
     setSession(null);
+    clearAccountData();
   }
 
   async function deleteAccount() {
@@ -1084,7 +1210,7 @@ export function AppProvider({ children }) {
     unreadMessages: conversations.reduce((sum, item) => sum + item.unread, 0), user, updateUser, refreshProfile, uploadAvatar,
     notificationSettings, updateNotificationSettings, appSettings, updateAppSettings, paymentMethods, addPaymentMethod, removePaymentMethod,
     setDefaultPaymentMethod, savedLocations, addSavedLocation, removeSavedLocation, postedJobs, addPostedJob,
-    addVehicleListing, updateVehicleStatus, bookingDraft, setBookingDraft, signOut, deleteAccount,
+    addVehicleListing, updateVehicleStatus, setVehicleMapPin, bookingDraft, setBookingDraft, signOut, deleteAccount,
   };
 
   return (
