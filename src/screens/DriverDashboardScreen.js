@@ -29,7 +29,7 @@ export default function DriverDashboardScreen({ navigation }) {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Route health</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Track')}>
+          <TouchableOpacity onPress={() => navigation.navigate('Track', { bookingId: data.routeHealth[0]?.id })}>
             <Text style={styles.linkText}>Open map</Text>
           </TouchableOpacity>
         </View>

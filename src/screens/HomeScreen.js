@@ -121,7 +121,7 @@ export default function HomeScreen({ navigation }) {
           <Pressable
             style={styles.trackBanner}
             onPress={() => trackableBooking
-              ? navigation.navigate('VehicleTracking', { id: trackableBooking.vehicleId })
+              ? navigation.navigate('VehicleTracking', { id: trackableBooking.vehicleId, bookingId: trackableBooking.id })
               : navigation.navigate('Bookings')}
           >
             <View style={{ flex: 1 }}>

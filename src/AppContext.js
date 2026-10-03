@@ -127,6 +127,7 @@ function mapBooking(row) {
   return {
     id: row.id,
     vehicleId: row.vehicle_id,
+    renterId: row.renter_id,
     pickup: row.pickup_at,
     dropoff: row.dropoff_at,
     total: Number(row.total || 0),
@@ -134,6 +135,7 @@ function mapBooking(row) {
     status: row.status === 'pending' || row.status === 'confirmed' || row.status === 'active' ? 'upcoming' : row.status,
     rawStatus: row.status,
     location: row.pickup_location,
+    dropoffLocation: row.dropoff_location,
     code: row.booking_code,
     paymentStatus: row.payment_status,
   };
@@ -221,7 +223,7 @@ export function AppProvider({ children }) {
     if (!activeSession?.user?.id) {
       setVehicles([]); setBookings([]); setFavorites([]); setConversations([]); setNotifications([]);
       setPaymentMethods([]); setSavedLocations([]); setPostedJobs([]); setUser(EMPTY_USER);
-      setAvailabilityRows([]); setPublicBookingRanges([]);
+      setAvailabilityRows([]); setPublicBookingRanges([]); setTrackingRows([]);
       setAppSettings(DEFAULT_APP_SETTINGS);
       return;
     }
@@ -481,26 +483,86 @@ export function AppProvider({ children }) {
     text: review.review_text || '',
   })), [reviews]);
 
-  const getVehicleTracking = useCallback((id) => {
-    const booking = bookings.find((item) => item.vehicleId === id && ['upcoming', 'active'].includes(item.status));
-    const points = trackingRows.filter((row) => row.booking_id === booking?.id);
-    if (!points.length) return null;
+  const getVehicleTracking = useCallback((id, bookingId) => {
+    const booking = bookings.find((item) => item.id === bookingId)
+      || bookings.find((item) => item.vehicleId === id && ['upcoming', 'active'].includes(item.status));
+    if (!booking) return null;
+    const providerId = getVehicleById(id)?.providerId;
+    const points = trackingRows
+      .filter((row) => row.booking_id === booking.id)
+      .sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
+    const providerPoints = points.filter((point) => !point.user_id || point.user_id === providerId);
+    const renterPoints = points.filter((point) => point.user_id === booking.renterId);
+    const latestProvider = providerPoints[providerPoints.length - 1];
+    const latestRenter = renterPoints[renterPoints.length - 1];
+    const toCoordinate = (point) => point
+      ? { latitude: point.latitude, longitude: point.longitude, recordedAt: point.recorded_at }
+      : null;
     const latest = points[points.length - 1];
-    const first = points[0];
     return {
       status: booking?.rawStatus === 'active' ? 'En route' : 'Waiting pickup',
       eta: null,
-      speed: latest.speed_kmh == null ? null : `${latest.speed_kmh} km/h`,
+      speed: latestProvider?.speed_kmh == null ? null : `${latestProvider.speed_kmh} km/h`,
       driverName: 'Provider',
       providerPhone: getVehicleById(id)?.providerPhone || null,
-      vehicleLocation: { latitude: latest.latitude, longitude: latest.longitude },
-      driverLocation: { latitude: first.latitude, longitude: first.longitude },
-      route: points.map((point) => ({ latitude: point.latitude, longitude: point.longitude })),
+      vehicleLocation: toCoordinate(latestProvider),
+      driverLocation: toCoordinate(latestProvider),
+      customerLocation: toCoordinate(latestRenter),
+      route: providerPoints.map((point) => ({ latitude: point.latitude, longitude: point.longitude })),
       pickup: booking.location,
-      dropoff: null,
-      lastUpdated: formatTime(latest.recorded_at),
+      dropoff: booking.dropoffLocation || null,
+      lastUpdated: formatTime(latest?.recorded_at),
     };
   }, [bookings, getVehicleById, trackingRows]);
+
+  const addTrackingLocation = useCallback(async (bookingId, location) => {
+    if (!session?.user?.id) throw new Error('Sign in to share your location.');
+    const result = await supabase.from('tracking_locations').upsert({
+      booking_id: bookingId,
+      user_id: session.user.id,
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      speed_kmh: location.coords.speed == null ? null : Math.max(0, location.coords.speed * 3.6),
+      recorded_at: new Date().toISOString(),
+    }, { onConflict: 'booking_id,user_id' }).select('*').single();
+    if (result.error) {
+      report(result.error.message);
+      throw result.error;
+    }
+    setTrackingRows((current) => [
+      ...current.filter((point) => point.booking_id !== bookingId || point.user_id !== session.user.id),
+      result.data,
+    ]);
+    return result.data;
+  }, [report, session?.user?.id]);
+
+  const refreshTrackingLocations = useCallback(async (bookingId) => {
+    const result = await supabase.from('tracking_locations').select('*')
+      .eq('booking_id', bookingId)
+      .order('recorded_at', { ascending: true });
+    if (result.error) {
+      report(result.error.message);
+      throw result.error;
+    }
+    setTrackingRows((current) => [
+      ...current.filter((point) => point.booking_id !== bookingId),
+      ...(result.data || []),
+    ]);
+  }, [report]);
+
+  const removeTrackingLocations = useCallback(async (bookingId) => {
+    if (!session?.user?.id) throw new Error('Sign in to stop sharing your location.');
+    const result = await supabase.from('tracking_locations').delete()
+      .eq('booking_id', bookingId)
+      .eq('user_id', session.user.id);
+    if (result.error) {
+      report(result.error.message);
+      throw result.error;
+    }
+    setTrackingRows((current) => current.filter(
+      (point) => point.booking_id !== bookingId || point.user_id !== session.user.id,
+    ));
+  }, [report, session?.user?.id]);
 
   const getDriverDashboard = useCallback(() => {
     const providerVehicles = vehicles.filter((vehicle) => vehicle.providerId === session?.user?.id);
@@ -1014,6 +1076,7 @@ export function AppProvider({ children }) {
     session, authLoading, loading, error, refresh: () => loadData(session), clearError: () => setError(null),
     showAuthSuccess,
     vehicles, getVehicleById, getVehicleAvailability, getVehicleReviews, getVehicleTracking, getDriverDashboard,
+    addTrackingLocation, refreshTrackingLocations, removeTrackingLocations,
     bookings, addBooking, cancelBooking, favorites, favoriteVehicles, toggleFavorite, isFavorite,
     filters, updateFilters, filteredVehicles, conversations, sendMessage, markConversationRead,
     startVehicleConversation, reportVehicleListing,

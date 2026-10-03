@@ -9,8 +9,10 @@ Supabase Edge Functions; secret payment credentials stay on the server.
 
 1. Install Node.js and the Expo Go app.
 2. Copy `.env.example` to `.env.local` and set the Supabase project URL and
-   publishable key. Optionally set `EXPO_PUBLIC_SUPPORT_PHONE` and
-   `EXPO_PUBLIC_SUPPORT_EMAIL` to enable the matching support contact buttons.
+   publishable key. For Android map tiles, set `GOOGLE_MAPS_API_KEY` to a
+   Google Maps SDK for Android key. Optionally set `EXPO_PUBLIC_SUPPORT_PHONE`
+   and `EXPO_PUBLIC_SUPPORT_EMAIL` to enable the matching support contact
+   buttons.
 3. Install dependencies and start Expo:
 
    ```bash
@@ -20,8 +22,21 @@ Supabase Edge Functions; secret payment credentials stay on the server.
 
 4. Scan the QR code with Expo Go, or run `npx expo start --web`.
 
+Android map keys are read by `app.config.js` at build time. Rebuild the native
+Android app after configuring or changing the key; restrict it in Google Cloud
+to the Android package `com.lexridesza.app` and your app-signing certificate,
+enable Maps SDK for Android, and configure billing.
+The web app uses OpenStreetMap tiles, while iOS uses Apple Maps.
+
 Never put a Supabase service-role key or Paystack secret key in an Expo
 `EXPO_PUBLIC_*` variable. `.env.local` is ignored by Git.
+
+GPS positioning uses the device's native location services (Core Location on
+iOS and Android's location provider); it does not require a Google Maps API
+key. iOS uses Apple Maps without a key. Android uses Google Maps for map tiles,
+so its key must have Maps SDK for Android enabled and be restricted to this
+app's Android package and signing certificate. The key is included in the
+native app configuration and is not a server secret.
 
 ## Configure the Supabase backend
 
@@ -40,6 +55,10 @@ Never put a Supabase service-role key or Paystack secret key in an Expo
    security, creates the required tables and storage buckets, calculates
    booking prices in the database, and creates booking conversations and
    notifications. Signup saves the user's name and phone to their profile.
+
+   For existing databases, apply
+   `supabase/migrations/20261007000000_mutual_live_location_sharing.sql` to
+   enable booking-participant location sharing and its access policies.
 
 3. Install the Supabase CLI, authenticate, and link this folder to the project:
 
@@ -97,6 +116,12 @@ Never put a Supabase service-role key or Paystack secret key in an Expo
   verification, and payment-confirmed bookings.
 - Booking-linked conversations, message read states, booking notifications,
   and realtime refreshes.
+- Opt-in, foreground live location sharing between confirmed-booking
+  participants. Each participant grants device location permission and starts
+  sharing separately; only each participant's latest position is retained and
+  updates are visible only to that booking's renter and provider. Sharing runs
+  while the Live Tracking screen is open and is not a background tracking
+  service.
 
 ## Legal information
 

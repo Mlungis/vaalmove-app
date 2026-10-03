@@ -391,11 +391,32 @@ create table public.saved_locations (
 create table public.tracking_locations (
   id bigint generated always as identity primary key,
   booking_id uuid not null references public.bookings(id) on delete cascade,
-  latitude double precision not null,
-  longitude double precision not null,
+  user_id uuid references public.profiles(id) on delete cascade,
+  latitude double precision not null check (latitude between -90 and 90),
+  longitude double precision not null check (longitude between -180 and 180),
   speed_kmh numeric(8, 2),
   recorded_at timestamptz not null default now()
 );
+
+create or replace function public.clear_ended_booking_tracking()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.tracking_locations
+  where booking_id = new.id;
+  return new;
+end;
+$$;
+
+drop trigger if exists bookings_clear_ended_tracking on public.bookings;
+create trigger bookings_clear_ended_tracking
+  after update of status on public.bookings
+  for each row
+  when (new.status in ('completed', 'cancelled', 'rejected'))
+  execute function public.clear_ended_booking_tracking();
 
 create or replace function public.handle_booking_events()
 returns trigger
@@ -450,6 +471,7 @@ create index vehicles_category_status_idx on public.vehicles(category, status);
 create index bookings_renter_id_idx on public.bookings(renter_id);
 create index bookings_vehicle_id_idx on public.bookings(vehicle_id);
 create index tracking_locations_booking_time_idx on public.tracking_locations(booking_id, recorded_at desc);
+create unique index tracking_locations_participant_idx on public.tracking_locations(booking_id, user_id);
 create index messages_conversation_time_idx on public.messages(conversation_id, created_at);
 
 create or replace function public.get_public_vehicle_booking_ranges()
@@ -498,6 +520,10 @@ alter table public.payment_attempts enable row level security;
 revoke update on table public.messages from authenticated;
 grant select, insert on table public.messages to authenticated;
 grant update (read_at) on table public.messages to authenticated;
+grant select, insert, update, delete on table public.tracking_locations to authenticated;
+grant usage, select on sequence public.tracking_locations_id_seq to authenticated;
+revoke all on table public.tracking_locations from anon;
+revoke all on sequence public.tracking_locations_id_seq from anon;
 
 create policy "published vehicles are viewable"
   on public.vehicles for select
@@ -723,16 +749,46 @@ create policy "booking participants view tracking"
     )
   );
 
-create policy "providers write tracking for active bookings"
+create policy "booking participants write tracking for confirmed bookings"
   on public.tracking_locations for insert to authenticated
   with check (exists (
     select 1
     from public.bookings b
     join public.vehicles v on v.id = b.vehicle_id
     where b.id = tracking_locations.booking_id
-      and v.provider_id = auth.uid()
+      and tracking_locations.user_id = auth.uid()
+      and (v.provider_id = auth.uid() or b.renter_id = auth.uid())
       and b.status in ('confirmed', 'active')
   ));
+
+create policy "users update their own tracking location"
+  on public.tracking_locations for update to authenticated
+  using (
+    user_id = auth.uid()
+    and exists (
+      select 1
+      from public.bookings b
+      join public.vehicles v on v.id = b.vehicle_id
+      where b.id = tracking_locations.booking_id
+        and (b.renter_id = auth.uid() or v.provider_id = auth.uid())
+        and b.status in ('confirmed', 'active')
+    )
+  )
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1
+      from public.bookings b
+      join public.vehicles v on v.id = b.vehicle_id
+      where b.id = tracking_locations.booking_id
+        and (b.renter_id = auth.uid() or v.provider_id = auth.uid())
+        and b.status in ('confirmed', 'active')
+    )
+  );
+
+create policy "users delete their own tracking locations"
+  on public.tracking_locations for delete to authenticated
+  using (user_id = auth.uid());
 
 do $$
 begin

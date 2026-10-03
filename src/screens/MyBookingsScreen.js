@@ -38,7 +38,7 @@ export default function MyBookingsScreen({ navigation, route }) {
   }
 
   function goToTracking(booking) {
-    navigation.navigate('Home', { screen: 'VehicleTracking', params: { id: booking.vehicleId } });
+    navigation.navigate('Home', { screen: 'VehicleTracking', params: { id: booking.vehicleId, bookingId: booking.id } });
   }
 
   return (

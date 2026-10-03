@@ -40,7 +40,13 @@
         }
       ],
       "expo-calendar",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "LexRidesZA uses your location to show your position and, only when you choose, share it with the other person on your booking."
+        }
+      ]
     ]
   }
 }
